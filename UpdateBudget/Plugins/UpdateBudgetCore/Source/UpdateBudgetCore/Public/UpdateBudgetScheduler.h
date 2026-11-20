@@ -18,6 +18,12 @@ struct FBudgetClientState
 	int32 CategoryIndex = 0;
 
 	/**
+	 * This frame's significance in [0, 1], from distance and view (1 = near and in view). The policy doesn't read it;
+	 * it fills the 4 bytes of padding after CategoryIndex, so the struct stays at 24 bytes.
+	 */
+	float Significance = 1.f;
+
+	/**
 	 * World time (seconds) of the client's last update, negative before its first. The policy doesn't read it: the
 	 * subsystem derives Deadline from it every frame, and keeps it here so that loop never touches the component.
 	 */
@@ -35,6 +41,9 @@ struct FBudgetFrameStats
 
 	/** Updates that had to run because waiting one more frame would pass their deadline. */
 	int32 MandatoryRuns = 0;
+
+	/** Measured cost of the mandatory updates alone, in milliseconds. Above the budget, the overrun was forced (SC1). */
+	double MandatoryMs = 0.0;
 
 	/** Clients left for a later frame because the next update would not have fitted in the budget. */
 	int32 Deferred = 0;

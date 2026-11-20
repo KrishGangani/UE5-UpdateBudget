@@ -58,15 +58,20 @@ COMMON_ARGS = ("-windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautost
                "-deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd")
 
 # Extra command-line arguments per benchmark configuration (02_System_Architecture.md section 9).
-# UB is added in step S6, when the code that implements it exists.
 CONFIGS = {
     "B0": "",                                             # native tick, every frame
     "B1": '-ExecCmds="tick.AllowBatchedTicks 1"',          # B0 + engine tick batching
     "B2": "-UBBaseline=B2",                                # native tick + distance-band TickInterval
     "B3": "-UBBaseline=B3",                                # native tick + Significance Manager -> TickInterval
+    # UpdateBudget (S6). ub.Enabled is read when the world begins play, so it is set through the ini system before
+    # start-up; -ExecCmds would run too late (02 section 13). The budget comes from the project settings (2.0 ms).
+    "UB": "-ini:Engine:[ConsoleVariables]:ub.Enabled=1",
 }
 
-SUMMARY_COLUMNS = ("GameThreadTime", "FrameTime", "RenderThreadTime", "GPUTime", "UpdateBudget/UpdatesRun", "UpdateBudget/MaxGapMs")
+# The first six exist in every capture; the UpdateBudget scheduler columns only in UB captures (csv_stats skips absent ones).
+SUMMARY_COLUMNS = ("GameThreadTime", "FrameTime", "RenderThreadTime", "GPUTime", "UpdateBudget/UpdatesRun", "UpdateBudget/MaxGapMs",
+                   "UpdateBudget/UpdateMs", "UpdateBudget/MandatoryMs", "UpdateBudget/MandatoryRuns", "UpdateBudget/OverBudget", "UpdateBudget/NearMissed",
+                   "UpdateBudget/GameThread/RunFrame", "UpdateBudget/GameThread/Deadlines")
 
 
 def powershell(command: str) -> str:

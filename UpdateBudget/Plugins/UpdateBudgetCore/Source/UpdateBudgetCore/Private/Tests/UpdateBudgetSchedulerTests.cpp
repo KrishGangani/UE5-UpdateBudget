@@ -63,6 +63,7 @@ bool FUpdateBudgetSchedulerBudgetCutOffTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Runs"), Stats.Runs, 4);
 	TestEqual(TEXT("Deferred"), Stats.Deferred, 6);
 	TestEqual(TEXT("SpentMs"), Stats.SpentMs, 0.4, 1e-9);
+	TestEqual(TEXT("no mandatory cost"), Stats.MandatoryMs, 0.0, 1e-12);
 	TestFalse(TEXT("not over budget"), Stats.bOverBudget);
 	TestEqual(TEXT("the four earliest deadlines ran"), RunOrder, TArray<int32>({ 9, 8, 7, 6 }));
 	return true;
@@ -78,6 +79,7 @@ bool FUpdateBudgetSchedulerMandatoryBeatsBudgetTest::RunTest(const FString& Para
 
 	TestEqual(TEXT("Runs"), Stats.Runs, 5);
 	TestEqual(TEXT("MandatoryRuns"), Stats.MandatoryRuns, 5);
+	TestEqual(TEXT("MandatoryMs is the whole spend"), Stats.MandatoryMs, 0.5, 1e-9);
 	TestEqual(TEXT("Deferred"), Stats.Deferred, 0);
 	TestTrue(TEXT("over budget is reported"), Stats.bOverBudget);
 	return true;
@@ -93,6 +95,7 @@ bool FUpdateBudgetSchedulerZeroBudgetTest::RunTest(const FString& Parameters)
 	const FBudgetFrameStats Stats = Scheduler.Run(Clients, 1.0, 0.0, [&RunOrder](int32 Index) { RunOrder.Add(Index); return 0.01; });
 
 	TestEqual(TEXT("only the mandatory clients ran, most overdue first"), RunOrder, TArray<int32>({ 2, 4, 0 }));
+	TestEqual(TEXT("MandatoryMs"), Stats.MandatoryMs, 0.03, 1e-9);
 	TestEqual(TEXT("Deferred"), Stats.Deferred, 3);
 	return true;
 }

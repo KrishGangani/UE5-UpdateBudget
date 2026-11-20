@@ -62,6 +62,10 @@ FBudgetFrameStats FUpdateBudgetScheduler::Run(TConstArrayView<FBudgetClientState
 		PredictedCostMs[Category] = FMath::Lerp(PredictedCostMs[Category], CostMs, Alpha);
 		Stats.SpentMs += CostMs;
 		++Stats.Runs;
+		if (Position < NumMandatory)
+		{
+			Stats.MandatoryMs = Stats.SpentMs;   // the mandatory clients are the prefix, so this ends at their total
+		}
 	}
 
 	// The loop only ever stops at an optional client, so every mandatory client has run.

@@ -96,3 +96,17 @@
 | ⚠ found in the source: **reading a destroyed component after a world tick in a test** | A test that passes or crashes depending on when GC runs | Keep counts outside the components (`FUpdateLog`); `UWorld::Tick` may collect garbage at its end (`LevelTick.cpp:1968–1971`) | Run the test with `gc.ForceCollectGarbageEveryFrame 1` |
 | Ending a world "mid-frame" and guarding for it | Code complexity for a case that can't happen | Know the engine: PIE end and travel are queued and run between frames (02 §8); test the real worst case instead (`WorldTeardown`) | — |
 | Restoring a test cvar before the world that reads it is destroyed | Once the mode switches live (S7), the test world changes mode during teardown | Declare the `FTestConsoleVariable` before the world wrapper, so C++ destroys it after (04 §18) | — |
+
+## Significance and telemetry (S6): mistakes the S6 code review caught
+
+| Mistake | How to spot it | How to prevent it |
+|---|---|---|
+| ⚠ caught: **a view cone of half the horizontal FOV** | On a wide screen, agents in the corners of the picture count as out of view, so they get half significance and visibly update less often | Use the cone that circumscribes the view rectangle (half-diagonal angle from FOV and aspect ratio); test a point near a corner (`Significance.ViewCone`) |
+| ⚠ caught: **a client at the camera counts as out of view** | A first-person pawn's own logic updates a few times a second: its position relative to the camera is zero or perpendicular, so "in front" fails | Everything within a small radius of the camera is in view (`AlwaysInViewRadius`) |
+| ⚠ caught: **a "missed" counter that counts what could never run** | The SC3 share drops when agents are destroyed during the loop, although no live near agent was skipped | Count from the outcome, after invalid entries are removed (`CountNearClients`) |
+| ⚠ caught: **an analysis script that stops at the first bad run** | One timed-out run gives a traceback and no report for the good runs | Reuse the harness's failure rule, catch per-run errors and list them in the report |
+| ⚠ caught: **an analysis that assumes the setting it checks** | SC2 passes or fails against a hard-coded 0.5 s, whatever the project's categories say | The game writes its own bound into the capture (`UBMaxStaleness` metadata) and the analysis reads it |
+| Expecting `+Categories=` lines in `DefaultGame.ini` to add to the C++ default category | The default category disappears | Any ini entries replace the array (`Obj.cpp:3091–3095`); list every category you want |
+| Reading this frame's camera during `TG_PrePhysics` | Significance lags a camera cut by one frame | Know that cameras update after all tick groups (`LevelTick.cpp:1828–1847`); the brains see the same one-frame-old view, so the comparison stays fair |
+| Treating the budget as a cap | `UpdateMs` sits at the budget on every frame even when few updates were due | The design is work-conserving: after the mandatory clients it keeps running clients in deadline order while the budget lasts (02 §2). A smaller budget is the way to spend less (02 §12) |
+| ⚠ caught by the compiler: **an integer that converts equally well to two overloads** (`AddOnScreenDebugMessage` takes a `uint64` or an `int32` key; `GetUniqueID()` is `uint32`) | Error C2668, ambiguous call to an overloaded function | Cast to the exact parameter type (`static_cast<uint64>`) |

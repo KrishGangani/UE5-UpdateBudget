@@ -2,7 +2,10 @@
 
 #include "UpdateBudgetSubsystem.h"
 
+#include "Camera/PlayerCameraManager.h"
+#include "Engine/Engine.h"
 #include "Engine/World.h"
+#include "GameFramework/PlayerController.h"
 #include "HAL/IConsoleManager.h"
 #include "HAL/PlatformTime.h"
 #include "ProfilingDebugging/CsvProfiler.h"
@@ -16,6 +19,11 @@ DEFINE_LOG_CATEGORY_STATIC(LogUpdateBudget, Log, All);
 // CSV category "UpdateBudget", enabled by default so a capture always contains it.
 CSV_DEFINE_CATEGORY(UpdateBudget, true);
 
+// "stat UpdateBudget" in a Development build.
+DECLARE_STATS_GROUP(TEXT("UpdateBudget"), STATGROUP_UpdateBudget, STATCAT_Advanced);
+DECLARE_CYCLE_STAT(TEXT("RunFrame"), STAT_UpdateBudget_RunFrame, STATGROUP_UpdateBudget);
+DECLARE_CYCLE_STAT(TEXT("Deadlines"), STAT_UpdateBudget_Deadlines, STATGROUP_UpdateBudget);
+
 // ECVF_Default, not a cheat cvar: cheat cvars can't be set from ini files (01b #11). To start a run in budgeted
 // mode, set it before the world begins play, e.g. -ini:Engine:[ConsoleVariables]:ub.Enabled=1 on the command line.
 static TAutoConsoleVariable<int32> CVarUpdateBudgetEnabled(
@@ -24,17 +32,17 @@ static TAutoConsoleVariable<int32> CVarUpdateBudgetEnabled(
 	TEXT("UpdateBudget mode, read when a world begins play. 0: native ticks (baselines). 1: budgeted (the scheduler runs the updates)."),
 	ECVF_Default);
 
-namespace UpdateBudget
-{
-	/** The default budget (02 section 7). Settings and the ub.BudgetMs cvar replace it in step S6. */
-	constexpr double DefaultBudgetMs = 2.0;
+static TAutoConsoleVariable<float> CVarUpdateBudgetMs(
+	TEXT("ub.BudgetMs"),
+	-1.f,
+	TEXT("UpdateBudget: game-thread ms per frame for optional updates. Negative: use Project Settings > Update Budget > Budget Ms."),
+	ECVF_Default);
 
-	/**
-	 * Max staleness of every client until significance exists (step S6). At 0 every client is due every frame, so the
-	 * scheduler path does exactly the native path's work: each client updated once per frame, at the same world times.
-	 */
-	constexpr double UnscoredMaxStalenessSeconds = 0.0;
-}
+static TAutoConsoleVariable<int32> CVarUpdateBudgetDebug(
+	TEXT("ub.Debug"),
+	0,
+	TEXT("UpdateBudget debug view. 0: off. 1: one on-screen line per world with this frame's stats."),
+	ECVF_Default);
 
 bool UUpdateBudgetSubsystem::DoesSupportWorldType(const EWorldType::Type WorldType) const
 {
@@ -46,6 +54,25 @@ void UUpdateBudgetSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	Super::OnWorldBeginPlay(InWorld);
 
 	bBudgeted = CVarUpdateBudgetEnabled.GetValueOnGameThread() != 0;
+
+	// Settings are read once per world, so a run can't change halfway; the cvar can still override the budget.
+	const UUpdateBudgetSettings* Settings = GetDefault<UUpdateBudgetSettings>();
+	Categories = Settings->Categories;
+	if (Categories.IsEmpty())
+	{
+		Categories.Add(FUpdateBudgetCategory());   // an ini that empties the array still leaves one valid category
+	}
+	SettingsBudgetMs = Settings->BudgetMs;
+	Scheduler = FUpdateBudgetScheduler(Categories.Num());   // one cost prediction per category
+
+	float LongestMaxStaleness = 0.f;
+	for (const FUpdateBudgetCategory& Category : Categories)
+	{
+		LongestMaxStaleness = FMath::Max(LongestMaxStaleness, FMath::Max(Category.NearMaxStaleness, Category.FarMaxStaleness));
+		UE_CLOG(Category.IsInverted(), LogUpdateBudget, Warning,
+			TEXT("Category '%s' is inverted (near %.0f cm / far %.0f cm, near %.3f s / far %.3f s): far clients would be at least as fresh as near ones."),
+			*Category.Name.ToString(), Category.NearDistance, Category.FarDistance, Category.NearMaxStaleness, Category.FarMaxStaleness);
+	}
 
 	// Normally nobody has registered yet (OnWorldBeginPlay runs before any actor's BeginPlay, 01b #7);
 	// if someone has, the mode must reach them too, or they would update natively and from the scheduler.
@@ -67,9 +94,13 @@ void UUpdateBudgetSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	// keeps the registry exact in every mode; otherwise only the scheduler's loop would ever find them.
 	PostGarbageCollectHandle = FCoreUObjectDelegates::GetPostGarbageCollect().AddUObject(this, &UUpdateBudgetSubsystem::HandlePostGarbageCollect);
 
-	UE_LOG(LogUpdateBudget, Display, TEXT("%s mode (ub.Enabled %d). Update timer resolution: %.1f ns."),
-		bBudgeted ? TEXT("Budgeted") : TEXT("Native"), CVarUpdateBudgetEnabled.GetValueOnGameThread(),
-		FPlatformTime::GetSecondsPerCycle64() * 1.0e9);
+	const TCHAR* ModeName = bBudgeted ? TEXT("Budgeted") : TEXT("Native");
+	UE_LOG(LogUpdateBudget, Display, TEXT("%s mode (ub.Enabled %d). Budget %.2f ms (settings %.2f, ub.BudgetMs %.2f), %d categories. Update timer resolution: %.1f ns."),
+		ModeName, CVarUpdateBudgetEnabled.GetValueOnGameThread(), ResolveBudgetMs(), SettingsBudgetMs,
+		CVarUpdateBudgetMs.GetValueOnGameThread(), Categories.Num(), FPlatformTime::GetSecondsPerCycle64() * 1.0e9);
+	CSV_METADATA(TEXT("UBMode"), ModeName);
+	// The staleness bound of this run's settings, so an analysis never has to assume one (SC2).
+	CSV_METADATA(TEXT("UBMaxStaleness"), *FString::SanitizeFloat(LongestMaxStaleness));
 }
 
 void UUpdateBudgetSubsystem::Register(UBudgetedUpdateComponent* Client)
@@ -132,7 +163,9 @@ void UUpdateBudgetSubsystem::ApplyMode(UBudgetedUpdateComponent& Client) const
 void UUpdateBudgetSubsystem::AddClient(UBudgetedUpdateComponent* Client)
 {
 	Client->RegistryIndex = Clients.Add(Client);
-	States.AddDefaulted_GetRef().LastUpdateTime = Client->GetLastUpdateTime();
+	FBudgetClientState& State = States.AddDefaulted_GetRef();
+	State.LastUpdateTime = Client->GetLastUpdateTime();
+	State.CategoryIndex = Client->GetBudgetCategory();
 }
 
 void UUpdateBudgetSubsystem::RemoveClientAt(int32 Index)
@@ -184,19 +217,71 @@ void UUpdateBudgetSubsystem::DetachClient(UBudgetedUpdateComponent* Client)
 	}
 }
 
+double UUpdateBudgetSubsystem::ResolveBudgetMs() const
+{
+	const float Override = CVarUpdateBudgetMs.GetValueOnGameThread();
+	return (Override >= 0.f) ? Override : SettingsBudgetMs;
+}
+
+void UUpdateBudgetSubsystem::CountNearClients(double Now)
+{
+	// From the outcome, after the loop and after invalid entries are gone: a near client is missed if it wasn't updated
+	// at this frame's time. One dense pass over States (SC3).
+	FrameNearClients = 0;
+	FrameNearMissed = 0;
+	for (const FBudgetClientState& State : States)
+	{
+		if (State.Significance >= 1.f)
+		{
+			++FrameNearClients;
+			FrameNearMissed += (State.LastUpdateTime < Now) ? 1 : 0;
+		}
+	}
+}
+
+void UUpdateBudgetSubsystem::UpdateDeadlines()
+{
+	SCOPE_CYCLE_COUNTER(STAT_UpdateBudget_Deadlines);
+	CSV_SCOPED_TIMING_STAT(UpdateBudget, Deadlines);
+
+	// One view for the whole loop: the player camera's cached view, which the demo brains and the B2/B3 drivers use too.
+	// Without one (no local player, e.g. a test world or a server) every client keeps significance 1: nothing goes stale.
+	const APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
+	const APlayerCameraManager* Camera = PlayerController ? PlayerController->PlayerCameraManager.Get() : nullptr;
+	const FUpdateBudgetView View = Camera ? FUpdateBudgetView::FromCamera(Camera->GetCameraCacheView()) : FUpdateBudgetView();
+
+	for (int32 Index = 0; Index < States.Num(); ++Index)
+	{
+		FBudgetClientState& State = States[Index];
+		const FUpdateBudgetCategory& Category = GetCategory(State.CategoryIndex);
+		float Significance = 1.f;
+		const UBudgetedUpdateComponent* Client = Clients[Index];
+		const AActor* Owner = Client ? Client->GetOwner() : nullptr;
+		if (Camera && Owner)
+		{
+			const FVector ToClient = Owner->GetActorLocation() - View.Location;
+			const double DistanceSquared = ToClient.SizeSquared();
+			Significance = Category.GetSignificance(DistanceSquared, View.IsInView(ToClient, DistanceSquared));
+		}
+		State.Significance = Significance;
+		// A client never updated has LastUpdateTime < 0, so its deadline is in the past: it runs this frame.
+		State.Deadline = State.LastUpdateTime + Category.GetMaxStaleness(Significance);
+	}
+}
+
 void UUpdateBudgetSubsystem::RunFrame(float DeltaSeconds)
 {
-	const double Now = GetWorld()->GetTimeSeconds();
+	SCOPE_CYCLE_COUNTER(STAT_UpdateBudget_RunFrame);
+	CSV_SCOPED_TIMING_STAT(UpdateBudget, RunFrame);
 
-	// Deadlines from the hot data only. A client never updated has LastUpdateTime < 0, so it is due at once.
-	for (FBudgetClientState& State : States)
-	{
-		State.Deadline = State.LastUpdateTime + UpdateBudget::UnscoredMaxStalenessSeconds;
-	}
+	const double Now = GetWorld()->GetTimeSeconds();
+	UpdateDeadlines();
+
+	FrameBudgetMs = ResolveBudgetMs();
 
 	// The last frame's delta estimates when the next frame starts (02 section 6); with a fixed step it is exact.
 	bRunningScheduler = true;
-	Scheduler.Run(States, Now + DeltaSeconds, UpdateBudget::DefaultBudgetMs, [this](int32 Index) { return RunClient(Index); });
+	FrameStats = Scheduler.Run(States, Now + DeltaSeconds, FrameBudgetMs, [this](int32 Index) { return RunClient(Index); });
 	bRunningScheduler = false;
 
 	// Changes made by the updates themselves, applied now that nothing reads the arrays.
@@ -204,6 +289,7 @@ void UUpdateBudgetSubsystem::RunFrame(float DeltaSeconds)
 	{
 		RemoveInvalidClients();
 	}
+	CountNearClients(Now);   // before the adds: a client added now hasn't had its first frame yet
 	for (UBudgetedUpdateComponent* Client : PendingAdds)
 	{
 		if (IsValid(Client))
@@ -262,9 +348,45 @@ void UUpdateBudgetSubsystem::Tick(float DeltaTime)
 	CSV_CUSTOM_STAT(UpdateBudget, Clients, Clients.Num(), ECsvCustomStatOp::Set);
 	CSV_CUSTOM_STAT(UpdateBudget, UpdatesRun, FrameUpdates, ECsvCustomStatOp::Set);
 	CSV_CUSTOM_STAT(UpdateBudget, MaxGapMs, FrameMaxGapSeconds * 1000.0, ECsvCustomStatOp::Set);
+	if (bBudgeted)
+	{
+		// The scheduler's own numbers exist only in budgeted mode; native captures don't get columns of zeros.
+		CSV_CUSTOM_STAT(UpdateBudget, UpdateMs, FrameStats.SpentMs, ECsvCustomStatOp::Set);
+		CSV_CUSTOM_STAT(UpdateBudget, BudgetMs, FrameBudgetMs, ECsvCustomStatOp::Set);
+		CSV_CUSTOM_STAT(UpdateBudget, MandatoryRuns, FrameStats.MandatoryRuns, ECsvCustomStatOp::Set);
+		CSV_CUSTOM_STAT(UpdateBudget, MandatoryMs, FrameStats.MandatoryMs, ECsvCustomStatOp::Set);
+		CSV_CUSTOM_STAT(UpdateBudget, Deferred, FrameStats.Deferred, ECsvCustomStatOp::Set);
+		CSV_CUSTOM_STAT(UpdateBudget, OverBudget, FrameStats.bOverBudget ? 1 : 0, ECsvCustomStatOp::Set);
+		CSV_CUSTOM_STAT(UpdateBudget, NearClients, FrameNearClients, ECsvCustomStatOp::Set);
+		CSV_CUSTOM_STAT(UpdateBudget, NearMissed, FrameNearMissed, ECsvCustomStatOp::Set);
+	}
+
+	if (CVarUpdateBudgetDebug.GetValueOnGameThread() > 0)
+	{
+		ShowDebugStats();
+	}
 
 	FrameUpdates = 0;
 	FrameMaxGapSeconds = 0.0;
+	FrameStats = FBudgetFrameStats();
+	FrameNearClients = 0;
+	FrameNearMissed = 0;
+}
+
+void UUpdateBudgetSubsystem::ShowDebugStats() const
+{
+	if (!GEngine)
+	{
+		return;
+	}
+	const FString Line = bBudgeted
+		? FString::Printf(TEXT("UpdateBudget: budgeted | %d clients | %d updates (%d mandatory, %d deferred) | %.2f of %.2f ms%s | max gap %.0f ms"),
+			Clients.Num(), FrameUpdates, FrameStats.MandatoryRuns, FrameStats.Deferred, FrameStats.SpentMs, FrameBudgetMs,
+			FrameStats.bOverBudget ? TEXT(" OVER") : TEXT(""), FrameMaxGapSeconds * 1000.0)
+		: FString::Printf(TEXT("UpdateBudget: native | %d clients | %d updates | max gap %.0f ms"),
+			Clients.Num(), FrameUpdates, FrameMaxGapSeconds * 1000.0);
+	// Keyed per subsystem, so the line is replaced every frame; a time of 0 shows it for one frame.
+	GEngine->AddOnScreenDebugMessage(static_cast<uint64>(GetUniqueID()), 0.f, FrameStats.bOverBudget ? FColor::Orange : FColor::Green, Line);
 }
 
 TStatId UUpdateBudgetSubsystem::GetStatId() const

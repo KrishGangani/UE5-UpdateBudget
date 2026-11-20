@@ -119,6 +119,10 @@
 | 28 | Engine test helpers: `FTestWorldWrapper`, `FTestConsoleVariable` (S5) | lifetime tests |
 | 29 | The component's tick and registration controls: `SetComponentTickEnabled`, `bStartWithTickEnabled`, `OnRegister` / `OnUnregister`, `Activate`, `ReregisterComponent`, `UnregisterAllComponents`, `RouteEndPlay` (S5) | `UBudgetedUpdateComponent`, lifetime tests |
 | 30 | Small utilities in S5: `IsValid`, `TArray::AddDefaulted_GetRef` / `Reset`, `TWeakObjectPtr`, `FCoreUObjectDelegates::GetPostGarbageCollect`, `UCLASS(NotBlueprintable, HideDropdown)` | subsystem, tests |
+| 31 | `UDeveloperSettings`: `config = Game`, `defaultconfig`, `UPROPERTY(config)`, `GetDefault` (S6) | `UUpdateBudgetSettings` |
+| 32 | Stats and timing scopes: `DECLARE_STATS_GROUP`, `DECLARE_CYCLE_STAT`, `SCOPE_CYCLE_COUNTER`, `CSV_SCOPED_TIMING_STAT` (S6) | `RunFrame`, `UpdateDeadlines` |
+| 33 | The camera's view: `GetCameraCacheView`, `FMinimalViewInfo` (`FOV`, `AspectRatio`) (S6) | significance |
+| 34 | Small utilities in S6: `AddOnScreenDebugMessage`, `UE_CLOG`, `FString::SanitizeFloat`, `FMath::Lerp` / `GetRangePct` / `Tan`, `GetDefault` | subsystem, significance |
 
 ## 5. `UActorComponent` lifecycle and `PrimaryComponentTick`
 
@@ -547,3 +551,66 @@
 | `TWeakObjectPtr<T>` | A pointer that doesn't keep its object alive and reads as null once the object is garbage or gone | The teardown test proves the subsystem was collected, and reads only components still alive | Using it to keep an object alive (it doesn't), or a raw pointer where an object may die between frames |
 | `FCoreUObjectDelegates::GetPostGarbageCollect()` + `AddUObject(this, &Class::Method)` → `FDelegateHandle`; `Remove(Handle)` (`CoreUObject/Public/UObject/UObjectGlobals.h:3490`) | A multicast delegate broadcast after every garbage collection (`GarbageCollection.cpp:5943`). `AddUObject` binds a member function and won't call it once the object is gone | The subsystem removes the entries GC nulled, in every mode (05 F4). `UWorld` and `UNetDriver` bind the same way (`World.cpp:1765`, `NetDriver.cpp:839`) | Forgetting to `Remove` the handle when the owner shuts down, or changing containers that another loop is reading from inside the callback (here: deferred if the scheduler is running) |
 | `UCLASS(NotBlueprintable, HideDropdown)` | No Blueprint subclasses; hidden from class pickers | The test classes ship in the module but never appear in the editor's lists | Leaving test classes visible, so designers can pick them |
+
+---
+
+## APIs added in step S6 (significance, settings, telemetry)
+
+## 31. `UDeveloperSettings`: Project Settings backed by an ini file
+
+1. **What it is.** An abstract UObject base class (`Runtime/DeveloperSettings/Public/Engine/DeveloperSettings.h:21–23`) whose subclasses appear in the editor's Project or Editor Settings automatically.
+2. **Why it exists.** A system needs designer-editable, version-controlled configuration without writing any settings UI.
+3. **How it works.**
+   - `UCLASS(config = Game, defaultconfig)`: `config = Game` names the ini file; `defaultconfig` makes the editor save into `Config/DefaultGame.ini`, the committed project file.
+   - `UPROPERTY(config, EditAnywhere)` marks each saved field.
+   - The class default object loads the values when the class is created, so `GetDefault<USettings>()` returns them at run time.
+   - The container (Project or Editor) and category come from the config name; the section name defaults to the class name (`DeveloperSettings.cpp:18–76`).
+   - **Arrays:** if the ini has any entries for an array property, the array is emptied and filled from the ini; if it has none, the C++ default stays (`CoreUObject/Private/UObject/Obj.cpp:3091–3095`).
+   - Needs the `DeveloperSettings` module as a dependency.
+4. **When to use it.** Per-project tuning that designers change and that belongs in source control.
+5. **When not to.** Values that change every frame or per instance (use properties on the component). Per-user preferences (use `config = EditorPerProjectUserSettings`). `UDeveloperSettingsBackedByCVars` syncs cvars only in the editor (`01b #11`), so packaged runs would differ.
+6. **Common mistakes.**
+   - Forgetting `config` on the `UPROPERTY`, so the value is never saved.
+   - Expecting `+Array=` lines in the ini to add to the C++ default: any entry replaces the default array.
+   - Reading the settings in a hot loop through `GetDefault` every time instead of once.
+7. **Example.** `UCLASS(config = Game, defaultconfig, meta = (DisplayName = "My System")) class UMySettings : public UDeveloperSettings { GENERATED_BODY() public: UPROPERTY(config, EditAnywhere, Category = "Budget") float BudgetMs = 2.f; };` and `const float Budget = GetDefault<UMySettings>()->BudgetMs;`
+8. **In this project.** `UUpdateBudgetSettings` (05 G2): the budget and the significance categories, read once per world in `OnWorldBeginPlay`.
+
+## 32. Stats and timing scopes: `DECLARE_STATS_GROUP`, `DECLARE_CYCLE_STAT`, `SCOPE_CYCLE_COUNTER`, `CSV_SCOPED_TIMING_STAT`
+
+1. **What they are.** Two instrumentation systems. Cycle stats feed `stat <Group>` on screen and Unreal Insights (`Core/Public/Stats/Stats.h`, inside `#if STATS` at :31: `DECLARE_CYCLE_STAT` :130, `DECLARE_STATS_GROUP` :209, `SCOPE_CYCLE_COUNTER` :229; lighter or empty versions follow for builds without stats, :454–711). CSV timing stats write a column per scope into the CSV capture (`ProfilingDebugging/CsvProfiler.h`).
+2. **Why they exist.** To time a scope in the build that is measured, with tools that already exist.
+3. **How they work.**
+   - Cycle stats: declare a group and a stat once per file, then `SCOPE_CYCLE_COUNTER(STAT_X)` times the enclosing scope. The stats system is compiled out of Test and Shipping (`01b` §4).
+   - CSV: `CSV_SCOPED_TIMING_STAT(Category, Name)` records the scope's time per frame. The column is named `Category/<Thread>/Name`, here `UpdateBudget/GameThread/RunFrame`, because the profiler inserts the thread name (S3 finding). The CSV profiler's start-up benchmark put a timing stat at about 74 ns (S1).
+4. **When to use them.** Once-per-frame or rare scopes whose cost must be visible: here the whole budgeted path and its significance loop.
+5. **When not to.** Inside a per-update loop: thousands of scopes per frame would themselves cost measurable time (S1's reason for publishing once per frame).
+6. **Common mistakes.**
+   - Looking for `UpdateBudget/RunFrame` in the CSV: the thread name is part of the column.
+   - Declaring the same stat in two files (a link error).
+7. **Example.** `DECLARE_CYCLE_STAT(TEXT("Step"), STAT_MyStep, STATGROUP_Game); void Step() { SCOPE_CYCLE_COUNTER(STAT_MyStep); CSV_SCOPED_TIMING_STAT(MyCategory, Step); … }`
+8. **In this project.** `RunFrame` and `Deadlines` in both systems (05 G4). `RunFrame` minus `UpdateMs` is the scheduler's own overhead.
+
+## 33. The camera's view: `APlayerCameraManager::GetCameraCacheView`, `FMinimalViewInfo`
+
+1. **What it is.** The player camera manager caches the final view of the last camera update: location, rotation, horizontal `FOV` in degrees and `AspectRatio` (`Engine/Classes/Camera/PlayerCameraManager.h:331`; `Engine/Classes/Camera/CameraTypes.h:48–50`, `:96–98`).
+2. **Why it exists.** Gameplay and rendering need one agreed view per player without recomputing it.
+3. **How it works.** `UWorld::Tick` updates every player's camera manager **after** all tick groups and tickable objects (`LevelTick.cpp:1821` then `:1828–1847`). During `TG_PrePhysics` the cache therefore holds last frame's view. `FOV` is horizontal; the vertical extent follows from the aspect ratio. `FMinimalViewInfo`'s default `AspectRatio` is 4:3 (`CameraTypes.h:179`).
+4. **When to use it.** Relevance, significance and sensing code that needs "where is the player looking".
+5. **When not to.** Split-screen or server code that needs several views (02 §11).
+6. **Common mistakes.**
+   - Expecting this frame's camera during a tick group: it is one frame old.
+   - Testing visibility with a cone of half the **horizontal** FOV: on a wide screen the corners fall outside it (found by the S6 code review).
+   - Normalising every direction for an angle test: compare squared dot products instead (04 §22).
+7. **Example.** `if (const APlayerCameraManager* Camera = PC->PlayerCameraManager.Get()) { const FMinimalViewInfo& View = Camera->GetCameraCacheView(); const FVector Forward = View.Rotation.Vector(); … }`
+8. **In this project.** `UUpdateBudgetSubsystem::UpdateDeadlines` builds an `FUpdateBudgetView` from it once per frame (05 G4), the same view the brains (B4) and the B2/B3 drivers (D1) use.
+
+## 34. Small utilities in S6
+
+| API (5.8.4) | What it is | Why it is used here | Common mistake |
+|---|---|---|---|
+| `UEngine::AddOnScreenDebugMessage(uint64 Key, float TimeToDisplay, FColor, const FString&, …)` (`Engine/Classes/Engine/Engine.h:2196–2197`) | Draws a line of text on screen. A key other than −1 replaces the previous message with the same key | `ub.Debug 1`: one line per world, keyed by the subsystem's `GetUniqueID()`, shown for one frame (time 0) | Key −1 every frame: the messages stack up |
+| `UE_CLOG(Condition, Category, Verbosity, Format, …)` | `UE_LOG` that runs only when the condition is true | The begin-play warning for an inverted category | Putting work with side effects in the condition |
+| `FString::SanitizeFloat(double)` | A float as text without trailing zeros | The `UBMaxStaleness` CSV metadata value | Using it where a fixed number of decimals matters |
+| `FMath::Lerp`, `FMath::GetRangePct`, `FMath::DegreesToRadians`, `FMath::Tan` (`Core/Public/Math/UnrealMathUtility.h`) | Linear interpolation, the position of a value within a range, degree conversion, tangent | The significance falloff, the max staleness and the view cone (05 G1) | `GetRangePct` with Min = Max divides by zero; the category code never calls it then |
+| `GetDefault<T>()` | The class default object of `T`; for a config class it holds the loaded ini values | Reading `UUpdateBudgetSettings` once per world | Modifying it at run time (it is shared by everything that reads it) |

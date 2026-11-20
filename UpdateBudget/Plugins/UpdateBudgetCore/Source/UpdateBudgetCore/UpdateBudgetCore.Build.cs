@@ -9,6 +9,7 @@ public class UpdateBudgetCore : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine" });
+		// DeveloperSettings is public: the public header UpdateBudgetSettings.h derives from UDeveloperSettings.
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "DeveloperSettings" });
 	}
 }

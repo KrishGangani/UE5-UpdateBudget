@@ -184,3 +184,28 @@ States.Add({});                                       // may move the whole arra
 - **Why it breaks.** A `TArray` (like `std::vector`) keeps its elements in one block. When it grows past its capacity it allocates a new block, copies the elements and frees the old one. Every pointer, reference, view and iterator into the old block is now dangling. Removing an element shifts or swaps elements, so saved indices change meaning too.
 - **The fix.** Defer the change: record it during the loop and apply it after. Replacing an element in place (`Clients[i] = nullptr`) is safe, because nothing moves.
 - **In our code (S5):** the scheduler reads `States` through `GetData()` (05 E2), and an update may spawn or destroy other clients. So `Register` queues into `PendingAdds` and `Unregister` nulls the slot while the scheduler runs (05 F4).
+
+## 21. `static` factory functions and `static constexpr` members
+
+```cpp
+struct FView
+{
+    static constexpr double AlwaysInViewRadius = 200.0;        // one constant for the type, no storage per object
+    static FView FromCamera(const FMinimalViewInfo& Camera);   // builds a ready-to-use object
+};
+const FView View = FView::FromCamera(Camera);
+```
+- **A static factory** is a named constructor: `FromCamera` says what it builds from, which a constructor overload can't. It returns the object by value; the compiler builds it directly in the caller's variable (copy elision).
+- **`static constexpr` data members** are inline variables since C++17: defined in the header, one value for the whole program, usable at compile time.
+- **In our code (S6):** `FUpdateBudgetView::FromCamera` and `AlwaysInViewRadius` (05 G1).
+
+## 22. Compare squares instead of taking square roots
+
+```cpp
+// Is the angle between Forward and V below A?   dot(F, V) > cos(A) * |V|
+const double Along = FVector::DotProduct(Forward, V);
+const bool bInside = Along > 0.0 && Along * Along > CosASquared * V.SizeSquared();   // no Sqrt, no Normalize
+```
+- **Why it works.** For two non-negative numbers, x > y exactly when x² > y². So once `Along > 0` is known (and the right side is never negative), squaring both sides keeps the answer and removes the square root of `|V|`.
+- **Why it matters.** It runs for every client every frame. Distances are compared the same way: `DistanceSquared <= Square(NearDistance)`.
+- **In our code (S6):** `FUpdateBudgetView::IsInView` and `FUpdateBudgetCategory::GetSignificance` (05 G1); the brain's cone test (B4) uses the same idea.

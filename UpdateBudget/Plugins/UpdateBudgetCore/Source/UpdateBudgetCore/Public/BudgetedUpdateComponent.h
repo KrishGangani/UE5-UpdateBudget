@@ -44,6 +44,9 @@ public:
 	/** True when the scheduler runs this component's updates (budgeted mode) and its native tick is off. */
 	bool IsDrivenByScheduler() const { return bDrivenByScheduler; }
 
+	/** Index into the settings' significance categories (Project Settings > Update Budget). Read when the component registers. */
+	int32 GetBudgetCategory() const { return BudgetCategory; }
+
 	//~ Begin UActorComponent
 	UE_API virtual void BeginPlay() override;
 	UE_API virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -53,6 +56,10 @@ public:
 protected:
 	/** The gameplay work. Override in subclasses. See the time contract above for DeltaSeconds. */
 	virtual void OnBudgetedUpdate(float DeltaSeconds) {}
+
+	/** Which significance category this client uses: an index into the settings' Categories (out of range means 0). */
+	UPROPERTY(EditAnywhere, Category = "UpdateBudget", meta = (ClampMin = "0"))
+	int32 BudgetCategory = 0;
 
 	//~ Begin UActorComponent
 	UE_API virtual void OnRegister() override;

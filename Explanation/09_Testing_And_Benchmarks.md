@@ -288,6 +288,56 @@ The driver's own re-tuning grows roughly linearly with N, at about 0.1 µs per a
 
 ---
 
+## Step S6 · Significance, settings and telemetry (2026-11-21)
+
+| # | Check | Result |
+|---|---|---|
+| S6-a | **First build** | ❌ C2668 in `UpdateBudgetSubsystem.cpp`: `AddOnScreenDebugMessage` called with a `uint32` key is ambiguous between its `uint64` and `int32` overloads (07). Fixed with a `static_cast<uint64>` |
+| S6-b | **Build** (inside the package job: `UpdateBudgetEditor` and `UpdateBudget`, Win64 Development) | ✅ `Result: Succeeded`, **0 errors, 0 warnings** in both targets (19 actions); cook `Success - 0 error(s), 0 warning(s)`; `BUILD SUCCESSFUL` |
+| S6-c | **All automation tests** (`Toolsun_tests.bat UpdateBudget`, after the package, same source; the editor target was already up to date) | ✅ **19 / 19 passed**, `TEST COMPLETE. EXIT CODE: 0`, 0 errors and 0 warnings in the log: lifetime (6), scheduler (8, three now also assert `MandatoryMs`), significance (5: `Bands`, `OutOfView`, `MaxStaleness`, `FarNotBeyondNear`, `ViewCone`). The lifetime worlds have no player camera, so every client keeps significance 1 there and S5's once-per-frame expectations still hold |
+| S6-d | **The first UB run** (batch `2026-11-21_034349_s6first`: UB, N = 2,000, 1 run + priming, warm-up 10 s, capture 60 s, budget 2.0 ms from the settings, pinned `0xFFFF`) | ✅ exit 0, **0 log errors, 0 log warnings**, 3,600 captured frames, 5 PSO events and 1 GC event. The log proves the mode: `Set CVar [[ub.Enabled:1]]`, then `Budgeted mode (ub.Enabled 1). Budget 2.00 ms (settings 2.00, ub.BudgetMs -1.00), 1 categories. Update timer resolution: 100.0 ns.` The capture carries `ubmode = Budgeted`, `ubmaxstaleness = 0.5` |
+| S6-e | **SC1, budget adherence** (`Tools/analyse_ub.py`, `Benchmarks/Summaries/2026-11-21_034349_s6first_ub_check.md`) | ✅ **PASS on this run.** `UpdateMs` median 1.998 / p95 **2.000** / p99 2.012 / max 2.218 ms against a 2.2 ms threshold (1.10 × budget). 163 of 3,600 frames (4.5%) ended over budget, **none forced** (`MandatoryMs` never above the budget: median 0.079, max 0.871 ms). All 163 were soft: the last update came out slightly dearer than predicted |
+| S6-f | **SC2, no starvation** | ✅ **PASS on this run.** The largest per-frame gap was **233.3 ms** against a bound of 516.7 ms (0.5 s + one frame); 0 frames over the bound. At the end of the run the oldest agent was 150 ms old, and none was never updated |
+| S6-g | **SC3, relevance first** | ✅ 100% of frames had no near client missed (`NearMissed` 0 in every frame; a median of 11 near clients, at most 18). By construction under the default settings (02 §12 item 11): it confirms the mandatory path works |
+
+**What the run shows** (one run: a check of the mechanism, **not** evidence for SC4; Phase 8 runs the interleaved matrix on one build):
+- **The budget is spent, and held.** The policy runs the mandatory clients (median 17 per frame, 0.08 ms), then fills the budget in deadline order: a median of **520 updates per frame**, so each agent is updated about every 4 frames (mean gap about 66 ms), far fresher than its 0.5 s limit. The measured cost per update is about **3.8 µs** (2.0 ms / 520), against S2's whole-frame estimate of 5.2 µs per native agent, which also contained the native tick's own overhead.
+- **The scheduler's own cost:** the `RunFrame` scope (median 2.292 ms) minus `UpdateMs` (1.998 ms) is **about 0.29 ms per frame** at N = 2,000. The significance loop (`Deadlines`) is 0.090 ms of it; the sort, the timer reads and the bookkeeping are the rest.
+- **Game thread against the S3 baselines** (a different batch, so indicative only): UB's `GameThreadTime` was 3.571 / 4.207 / **4.899** ms (median / p95 / p99), against B2's pinned 2.641 / 3.623 / **5.660** ms at N = 2,000.
+  - **The median and p95 are higher than B2's** at this 2 ms budget, which is expected: the design spends close to the whole budget every frame (02 §12 item 9), while B2 updates only about 172 agents per frame.
+  - **The p99 is lower:** UB has no periodic spike (the update count never exceeds 625, against B2's 1,363).
+  - At a 2 ms budget, SC4 ("median **and** p95 lower than the best baseline") is therefore unlikely to hold. The Phase 8 budget sweep (1 / 2 / 4 ms) will measure where it does, and the result will be reported whatever it is (01 §6.4).
+- **The frame was render-thread bound in this run:** `RenderThreadTime` median 3.781 ms > `GameThreadTime` 3.571 ms; `FrameTime` 3.819 ms. B2 and B3 were already render-bound at N = 2,000 (their `FrameTime` of 4.8 ms was above their game-thread time). SC4 is defined on game-thread time, so it is unaffected, but frame-time comparisons at N = 2,000 now measure the renderer as much as the game thread.
+
+**Audit trail for S6:**
+- `code-review` (medium): **4 important findings, 4 minor; all fixed or documented.**
+  - **The view cone was half the horizontal FOV**, so screen corners counted as out of view. It is now the cone that circumscribes the view rectangle (05 G1), with a corner test.
+  - **A client at the camera counted as out of view**: a first-person pawn's own logic would have updated about 4 times a second. Now everything within 2 m of the camera is in view.
+  - **`NearMissed` counted entries that could never run** (null, or destroyed during the loop). It is now counted from the outcome after the removal pass.
+  - **`analyse_ub.py` stopped at the first bad run.** It now lists failed or unanalysable runs with their reason.
+  - Minor:
+    - The SC2 bound came from a CLI default; the capture now carries its own (`UBMaxStaleness`).
+    - The forced/soft split compared two counts that measure different things; it now uses a measured `MandatoryMs`.
+    - Inverted categories were accepted silently; they now get a warning.
+    - SC3 checks the mechanism rather than significance freshness: documented (02 §12 item 11).
+- `simplify` (4 parallel reviews). Applied:
+  - one `ResolveBudgetMs()`;
+  - one mode name;
+  - SC3 counted in one pass from the outcome (it replaced three coupled sites);
+  - `MandatoryMs` measured by the scheduler (three S4 tests assert it);
+  - `analyse_ub.py` reuses `run_bench.is_failure` and the manifest's statistics;
+  - two clean-ups in the significance code and its tests.
+- Skipped, with reasons:
+  - **B2/B3 reading the UB category settings** instead of their own constants (same values today): a change to the committed baseline driver. Follow-up for Phase 8, which re-runs every configuration on one build.
+  - **Caching each owner's root component** (estimated 40–80 µs per frame at N = 4,000): a third registry array. Phase 8 decides with the `Deadlines` column (11).
+  - **Raw pointers and a pre-clamped category index** in the deadline loop: about 1 ns per client.
+  - **Testing distance before view**: 2–4 ns per client, but needs the category API split.
+  - **Moving `series`/`table` helpers into `csv_stats`**: touches `analyse_baselines.py`, outside this step.
+  - **Deleting `AlwaysInViewRadius`** (the altitude review: it never fires in the benchmark): the code review showed why a general plugin needs it.
+- The first S6 build failed on an ambiguous overload (`AddOnScreenDebugMessage` with a `uint32` key, 07). It was fixed with an explicit cast before any later build.
+
+---
+
 ## Phases 7–8 (to be written)
 
 - Functional, edge-case, stability and scalability tests.

@@ -5,6 +5,7 @@
 #include "BudgetedUpdateComponent.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "UpdateBudgetScheduler.h"
+#include "UpdateBudgetSettings.h"
 #include "UpdateBudgetTickFunction.h"
 #include "UpdateBudgetSubsystem.generated.h"
 
@@ -16,8 +17,10 @@
  *
  * Mode (cvar ub.Enabled, read once in OnWorldBeginPlay):
  *   native (0)    every client updates from its own native tick, as in the baselines B0-B3;
- *   budgeted (1)  native ticks are off, and FUpdateBudgetTickFunction calls RunFrame() in TG_PrePhysics,
- *                 which hands the hot client states to FUpdateBudgetScheduler.
+ *   budgeted (1)  native ticks are off, and FUpdateBudgetTickFunction calls RunFrame() in TG_PrePhysics: every
+ *                 client's significance (distance and view from the player camera) gives its max staleness and
+ *                 deadline, and FUpdateBudgetScheduler runs the due clients, then the rest while the budget lasts.
+ * Settings (UUpdateBudgetSettings) are read once in OnWorldBeginPlay; cvar ub.BudgetMs overrides the budget per frame.
  *
  * Registry: two parallel arrays with the same index. Clients is a UPROPERTY (seen by GC); States is the hot data
  * the per-frame loops read without touching a UObject (H5). While the scheduler runs, adds and removals are
@@ -75,7 +78,7 @@ public:
 	//~ End UWorldSubsystem
 
 	//~ Begin USubsystem
-	/** Unregisters the tick function and detaches every client still registered. */
+	/** Unregisters the tick function and the GC hook, and detaches every client still registered. */
 	UE_API virtual void Deinitialize() override;
 	//~ End USubsystem
 
@@ -95,6 +98,24 @@ private:
 
 	/** One frame of budgeted updates: deadlines, the policy, then the adds and removals deferred during the loop. */
 	void RunFrame(float DeltaSeconds);
+
+	/** Step 1: every client's significance and deadline, from the dense States and each owner's location. */
+	void UpdateDeadlines();
+
+	/** The category a client uses; an index out of range means category 0 (never empty). */
+	const FUpdateBudgetCategory& GetCategory(int32 Index) const
+	{
+		return Categories.IsValidIndex(Index) ? Categories[Index] : Categories[0];
+	}
+
+	/** The budget in effect: ub.BudgetMs when it is >= 0, otherwise the settings value. */
+	double ResolveBudgetMs() const;
+
+	/** After the loop: how many clients were near (significance 1) and how many of them weren't updated this frame (SC3). */
+	void CountNearClients(double Now);
+
+	/** ub.Debug 1: one on-screen line with this frame's numbers. */
+	void ShowDebugStats() const;
 
 	/** Runs one client for the policy and returns its measured cost in ms (0 for an entry that is no longer valid). */
 	double RunClient(int32 Index);
@@ -135,6 +156,12 @@ private:
 	FUpdateBudgetTickFunction TickFunction;
 	FDelegateHandle PostGarbageCollectHandle;
 
+	/** The settings' categories, copied in OnWorldBeginPlay (at least one). */
+	TArray<FUpdateBudgetCategory> Categories;
+
+	/** The settings' budget, copied in OnWorldBeginPlay; ub.BudgetMs >= 0 overrides it. */
+	double SettingsBudgetMs = 2.0;
+
 	bool bBudgeted = false;
 
 	/** True while the scheduler is running clients: registry changes are deferred. */
@@ -143,9 +170,13 @@ private:
 	/** Set when the loop met a null or invalid entry (or GC ran inside it); RunFrame removes them after the loop. */
 	bool bHasInvalidClients = false;
 
-	/** This frame's totals, published and reset in Tick(). */
+	/** This frame's totals, published and reset in Tick(). The last four exist only in budgeted mode. */
 	int32 FrameUpdates = 0;
 	double FrameMaxGapSeconds = 0.0;
+	FBudgetFrameStats FrameStats;
+	double FrameBudgetMs = 0.0;
+	int32 FrameNearClients = 0;     // significance 1 (near and in view) when the deadlines were set
+	int32 FrameNearMissed = 0;      // ...and not updated this frame: SC3's "near client missed"
 };
 
 #undef UE_API
