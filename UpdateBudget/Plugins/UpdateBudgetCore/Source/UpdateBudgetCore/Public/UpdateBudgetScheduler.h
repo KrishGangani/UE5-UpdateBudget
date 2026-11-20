@@ -16,6 +16,12 @@ struct FBudgetClientState
 
 	/** Which cost prediction this client uses (one per settings category). An index out of range means category 0. */
 	int32 CategoryIndex = 0;
+
+	/**
+	 * World time (seconds) of the client's last update, negative before its first. The policy doesn't read it: the
+	 * subsystem derives Deadline from it every frame, and keeps it here so that loop never touches the component.
+	 */
+	double LastUpdateTime = -1.0;
 };
 
 /** What happened in one frame. */
@@ -51,8 +57,8 @@ class FUpdateBudgetScheduler
 {
 public:
 	/**
-	 * Runs one client and returns its measured cost in milliseconds. It may change the client states the
-	 * scheduler was given (the subsystem sets the new deadline there); the order is fixed before any client runs.
+	 * Runs one client and returns its measured cost in milliseconds. It may change only state fields the policy doesn't
+	 * read (the subsystem mirrors LastUpdateTime there): the order and the mandatory set are fixed before any client runs.
 	 */
 	using FRunClient = TFunctionRef<double(int32 ClientIndex)>;
 

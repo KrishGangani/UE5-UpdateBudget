@@ -74,17 +74,17 @@ D:\UNREAL PORTFOLIO\P01_UpdateBudget\Tools\                  ← Python stats + 
 | Class | Kind / base | Responsibility | Why it exists, and what we rejected |
 |---|---|---|---|
 | `FUpdateBudgetScheduler` | Plain C++ struct (no UObject) | The **policy**: given client states, the time, the budget and a "run client *i*" callback, it decides who runs and returns frame stats | Makes the algorithm **unit-testable with fake clients and fake costs, without a world**. *Rejected:* logic inside the subsystem, which can only be tested in a running world |
-| `FBudgetClientState` | Plain struct | The hot data per client. S4 adds the two fields the policy reads, `Deadline` and `CategoryIndex`; S5/S6 add `LastUpdateTime` and `MaxStaleness` when the subsystem starts computing deadlines (fields arrive with the code that uses them) | The per-frame loop walks this dense array and touches no UObject memory (H5) |
-| `UUpdateBudgetSubsystem` | `UTickableWorldSubsystem` | The **mechanism**: registry, significance refresh, owning the tick function, running the scheduler, telemetry, mode switching | Its lifetime is the world. Its own `Tick` runs after `TG_PostPhysics` (`01b` §2), which is the right moment to publish one frame's complete telemetry. Scheduling uses the separate `TG_PrePhysics` tick function below. *Rejected:* a manager Actor (can be deleted or duplicated); `UGameInstanceSubsystem` (outlives worlds) |
-| `FUpdateBudgetTickFunction` | USTRUCT deriving `FTickFunction`, with `WithCopy = false` | Calls `Subsystem->RunFrame(DeltaTime)` in **`TG_PrePhysics`** | `UTickableWorldSubsystem` ticks after `TG_PostPhysics` and can't choose a group (`01b` §2). Mass uses this same pattern ✔ |
-| `UBudgetedUpdateComponent` | `UActorComponent` | The client. It holds the category, registry index and last update time, and declares `virtual void OnBudgetedUpdate(float DeltaSeconds)`. It also has a **native-tick path** for the baselines. It **owns the time contract**: `DeltaSeconds` = world time since its previous update (0 on the first), measured the same way in every mode; the engine's tick `DeltaTime` is not forwarded | A component, not an interface: it must hold data and attach to any actor, Blueprint actors included. *Rejected:* an interface (every class re-implements the bookkeeping); a per-actor delegate (binding plus indirect-call cost in the hot loop) |
+| `FBudgetClientState` | Plain struct | The hot data per client. S4 added the two fields the policy reads, `Deadline` and `CategoryIndex`. **S5 adds `LastUpdateTime`**, mirrored from the component by `RecordUpdate` in every mode, so the deadline loop never reads the component. S6 adds `MaxStaleness` with the significance code (fields arrive with the code that uses them) | The per-frame loop walks this dense array and touches no UObject memory (H5) |
+| `UUpdateBudgetSubsystem` | `UTickableWorldSubsystem` | The **mechanism**: registry, significance refresh, owning the tick function, running the scheduler, telemetry, mode switching. **S5:** reads the mode (`ub.Enabled`) once in `OnWorldBeginPlay`, applies it to every client, registers the tick function, and defers registry changes made while the scheduler runs | Its lifetime is the world. Its own `Tick` runs after `TG_PostPhysics` (`01b` §2), which is the right moment to publish one frame's complete telemetry. Scheduling uses the separate `TG_PrePhysics` tick function below. *Rejected:* a manager Actor (can be deleted or duplicated); `UGameInstanceSubsystem` (outlives worlds) |
+| `FUpdateBudgetTickFunction` | USTRUCT deriving `FTickFunction`, with `WithCopy = false` | Calls `Subsystem->RunFrame(DeltaTime)` in **`TG_PrePhysics`** | `UTickableWorldSubsystem` ticks after `TG_PostPhysics` and can't choose a group (`01b` §2). A world-level owner of a `TG_PrePhysics` tick function registered on the persistent level is what Mass does ✔ (`MassProcessingPhaseManager.cpp:485–486`). **Checked in S5:** Mass's `FMassProcessingPhase` is a plain struct with deleted copy operations in 5.8.4 (`MassProcessingPhaseManager.h:54–60`); the USTRUCT form with `WithCopy = false` is the engine's own `FActorTickFunction` (`EngineBaseTypes.h:565–608`) and Niagara's world-manager tick function (`NiagaraWorldManager.h:47–69`) |
+| `UBudgetedUpdateComponent` | `UActorComponent` | The client. It holds the category, registry index and last update time, and declares `virtual void OnBudgetedUpdate(float DeltaSeconds)`. It also has a **native-tick path** for the baselines. It **owns the time contract**: `DeltaSeconds` = world time since its previous update (0 on the first), measured the same way in every mode; the engine's tick `DeltaTime` is not forwarded. **S5:** it joins the registry in `BeginPlay` (and `OnRegister` when re-registered while playing) and leaves in `OnUnregister` or `EndPlay`, whichever comes first: the moments the engine registers and unregisters its native tick. In budgeted mode its native tick is off, and a guard in `TickComponent` turns it off again if other code turns it on | A component, not an interface: it must hold data and attach to any actor, Blueprint actors included. *Rejected:* an interface (every class re-implements the bookkeeping); a per-actor delegate (binding plus indirect-call cost in the hot loop) |
 | `UUpdateBudgetSettings` + `FUpdateBudgetCategory` | `UDeveloperSettings` (`config=Game, defaultconfig`) + USTRUCT | Project Settings: budget ms, tick group, categories (near/far distance, near/far max staleness, behind-camera multiplier) | One config-backed, designer-editable place. *Rejected:* `UDeveloperSettingsBackedByCVars`, whose sync is editor-only (`01b #11`); Data Assets, which add a loading step for no gain yet |
 
 **Console variables** (`ECVF_Default`, because cheat flags can't be set from config, `01b #11`):
 
 | Cvar | Meaning |
 |---|---|
-| `ub.Enabled` | `0` native, `1` budgeted |
+| `ub.Enabled` | `0` native, `1` budgeted. **S5:** read once per world, in `OnWorldBeginPlay`; S7 adds the live switch. A run starts budgeted with `-ini:Engine:[ConsoleVariables]:ub.Enabled=1`, because `-ExecCmds` run only after the world has begun play (§13) |
 | `ub.BudgetMs` | Override the settings value; `<0` means use the settings value |
 | `ub.Debug` | Debug draw and on-screen stats |
 
@@ -148,19 +148,21 @@ sequenceDiagram
   participant C as UBudgetedUpdateComponent
   TT->>TF: ExecuteTick(DeltaTime)
   TF->>S: RunFrame(DeltaTime)
-  S->>S: 1. apply deferred adds/removes, drop invalid entries
-  S->>S: 2. significance → MaxStaleness → Deadline (dense loop)
-  S->>P: 3. Run(States, NextFrameTime, BudgetMs, RunClient)
+  S->>S: 1. significance → MaxStaleness → Deadline (dense loop over States)
+  S->>P: 2. Run(States, NextFrameTime, BudgetMs, RunClient)
   P->>P: mandatory = Deadline < NextFrameTime
   loop mandatory, then earliest deadline first while budget allows
-    P->>S: RunClient(i)
-    S->>C: OnBudgetedUpdate(Now − LastUpdate)
+    P->>S: RunClient(i): IsValid guard, timer around RunUpdate
+    S->>C: RunUpdate() → OnBudgetedUpdate(Now − LastUpdate)
     C-->>S: returns (elapsed measured)
   end
   P-->>S: frame stats (spent, runs, mandatory, over budget)
-  S->>S: 4. apply deferred changes made during updates
-  S->>S: 5. CSV stats, OnFrameStats
+  S->>S: 3. remove entries nulled during the loop, add the clients registered during it
+  Note over S: after TG_PostPhysics, the subsystem's own Tick
+  S->>S: 4. CSV stats, OnFrameStats
 ```
+
+**S5 notes.** Between frames, `Register` and `Unregister` change the arrays at once; only changes made *during* step 2 are deferred to step 3 (the policy reads `States` through a raw pointer, so nothing may reallocate it). Until S6 adds significance, step 1 uses a max staleness of 0 for every client: every client is due every frame, so the scheduler path does exactly the native path's work, which is what makes S5 checkable against B0 (09, S5).
 
 ### Policy, in code-sized pseudocode (the real code mirrors this)
 
@@ -196,9 +198,12 @@ One sort gives both sets: after sorting, the mandatory clients are exactly the p
 |---|---|---|
 | The tick function runs in editor worlds | `DoesSupportWorldType`: Game and PIE only. Register in `OnWorldBeginPlay` | `01b #2` |
 | The tick function outlives the subsystem | Unregister explicitly in `Deinitialize` (the destructor also unregisters, as a safety net) | `01b` §2 |
-| A component is destroyed but its reference is still non-null | Unregister in `EndPlay`. `IsValid()` guard in `RunFrame`. Null entries compacted | `01b #8` |
-| A component is added or destroyed **during** another update | An `bIsRunning` flag defers both; they are applied after the loop. Index stability during the loop | `01b #9` |
-| Registration before the subsystem exists | Can't happen: `OnWorldBeginPlay` runs before any actor's `BeginPlay` | `01b #7` |
+| A component is destroyed but its reference is still non-null | Unregister in `EndPlay`. `IsValid()` guard in `RunClient`. Null and invalid entries removed after the loop, and after every garbage collection in every mode (S5 code review: before that, a native-mode registry kept a slot GC had nulled) | `01b #8`; `UObjectGlobals.h:3490` |
+| A component is added or destroyed **during** another update | A `bRunningScheduler` flag defers both: a removal nulls the slot, an add waits in `PendingAdds` (a UPROPERTY, so GC sees it). Both are applied right after the loop, so indices are stable while it runs. An add and a removal of the same client inside one loop cancel out | `01b #9`; tests `DestroyDuringUpdate`, `SpawnDuringUpdate` (S5) |
+| **A level is streamed out** (S5) | Its components are unregistered first and get `EndPlay(RemovedFromWorld)` later, possibly frames later, because both steps are time-sliced. The native tick goes at the first step. So the client leaves the registry in `OnUnregister` as well as in `EndPlay` | `World.cpp:4196–4208` then `4244–4251`; `Level.cpp:2196`, `3939`; `ActorComponent.cpp:2147`; test `LevelUnloadOrder` |
+| **The native tick comes back in budgeted mode** (S5) | Re-registering a component re-enables its tick when `bStartWithTickEnabled` is set, and `Activate()` enables it. The mode therefore sets `bStartWithTickEnabled` too, `OnRegister` re-joins a re-registered component, and `TickComponent` switches a re-enabled tick off again without updating | `ActorComponent.cpp:1747`, `2819`; `Actor.cpp:6443–6451`; test `NoDoubleUpdate` |
+| **The world ends in the middle of a frame** (S5) | Can't happen: ending PIE is queued and runs after the world tick, and travel runs before it (between frames). The worst case is a frame with deferred changes followed directly by the world's end | `PlayLevel.cpp:1400–1404`, `EditorEngine.cpp:2463, 2507`; `GameEngine.cpp:1893, 1901`; test `WorldTeardown` |
+| Registration before the subsystem exists | Can't happen: `OnWorldBeginPlay` runs before any actor's `BeginPlay`. If a client is registered before the mode is read, `OnWorldBeginPlay` applies the mode to it | `01b #7` |
 | The Significance Manager is missing in `Initialize` (B3), and is gone by `Deinitialize` | The B3 driver checks for it in `OnWorldBeginPlay`. It unregisters each agent in `HandleAgentEndPlay` (bound to the agent's `OnEndPlay`) and everything left in `OnWorldEndPlay`, while the manager still exists | `01b #10`; `06` §17 |
 | A hot loop touching UObjects | Policy loops read only `FBudgetClientState`. UObjects are touched only for chosen updates and significance (owner location) | H5 |
 
@@ -206,7 +211,7 @@ One sort gives both sets: after sorting, the mandatory clients are exactly the p
 - `UPROPERTY() TArray<TObjectPtr<UBudgetedUpdateComponent>> Clients` is visible to GC.
 - `TArray<FBudgetClientState> States` is the hot data.
 
-Each component stores its `RegistryIndex`, so unregister is an O(1) swap-remove. Removal is deferred while running.
+Each component stores its `RegistryIndex`, so unregister is an O(1) swap-remove. Removal is deferred while running. A client waiting in `PendingAdds` has its link set but `RegistryIndex = INDEX_NONE`; when it is added, its hot state starts from its own `LastUpdateTime`, so nothing it did while waiting is lost.
 
 ## 9. One logic path for every configuration
 
@@ -218,9 +223,11 @@ The workload must be identical across B0–B3 and UB. So **the same `OnBudgetedU
 | B1 | Same as B0, with `tick.AllowBatchedTicks 1` | engine cvar |
 | B2 | Native tick with a distance-based `TickInterval` | `UUBBaselineDriverSubsystem` |
 | B3 | Native tick with a Significance-Manager-driven `TickInterval` | `UUBBaselineDriverSubsystem` |
-| UB | The scheduler; native tick disabled | `ub.Enabled 1` |
+| UB | The scheduler; native tick disabled | `ub.Enabled 1`, set before the world begins play (`-ini:Engine:[ConsoleVariables]:ub.Enabled=1`, §13) |
 
 **Measuring staleness in every mode, at equal cost:** each call records `gap = Now − LastUpdateTime` into the subsystem's per-frame maximum, published once per frame as the CSV stat `UpdateBudget/MaxGapMs`. The capture keeps every frame, so the full distribution comes from the CSV (the in-game histogram of the first draft was dropped as redundant, S1). This happens in every mode, so the cost is identical. At the end of a run, the director checks every agent's current age once, which catches anything never updated. There is no per-frame all-agents loop in the native modes, so the baselines aren't burdened.
+
+**What still differs between the modes, per update (S5):** the native path pays the engine's tick dispatch, `Super::TickComponent` and one `bDrivenByScheduler` test; the budgeted path pays an `IsValid` check, two timer reads and the policy's bookkeeping. `RecordUpdate`'s mirror of the update time into `States` runs in both. These are the real costs of each approach, so they stay inside the measurement.
 
 ## 10. C++ vs Blueprint
 
@@ -245,6 +252,8 @@ The workload must be identical across B0–B3 and UB. So **the same `OnBudgetedU
 4. **Logic must tolerate variable delta.** Per-frame physics forces and frame-counting timers don't fit (`07_Common_Mistakes.md`).
 5. **Significance reads each owner's location every frame.** That is pointer-chasing (H5). Caching every K frames is a Phase 8 option, decided with data.
 6. **v1 uses a full sort.** O(N log N) per frame is measured at N = 4,000 before anything smarter replaces it.
+7. **Registrations made inside the update loop take effect next frame** (S5). Natively, a tick function registered during a tick group runs in a later group of the same frame (`EngineBaseTypes.h:334–341`); in budgeted mode the add waits until the loop ends. So a client spawned inside another client's update gets its first update one frame later than natively. A client that another client **re-registers** (`ReregisterComponent`) inside its update misses one frame; its staleness can then reach its bound plus two frames, once (S5 code review). Restoring its slot would need the old index after `Unregister` has cleared it, which isn't worth the complexity for a case this rare. The benchmark spawns its wave from the director's tick, outside the loop, so it isn't affected.
+8. **The native tick controls don't steer the scheduler** (S5; the list was completed after the S5 code review). In budgeted mode the scheduler decides when a client updates, so these change nothing there although they stop or slow a native component: `Deactivate()` and `SetComponentTickEnabled(false)` (`ActorComponent.cpp:2826–2835`, `1755–1761`), `TickInterval`, the owner's `SetActorTickEnabled`, and `bTickEvenWhenPaused` (the scheduler's tick function doesn't tick while paused, `FTickFunction` default, `TickTaskManager.cpp:2364`). To stop a client's updates, end play or unregister it. `Activate()` is handled: it can't cause a double update.
 
 ## 13. Changes from the initial draft (2026-11-19 → 2026-11-21)
 
@@ -269,3 +278,10 @@ The workload must be identical across B0–B3 and UB. So **the same `OnBudgetedU
 | View source for B2/B3 is the player camera manager (S3) | The brains sense from the same camera, so every consumer sees the identical view |
 | B2 and B3 share one band test (`BandForDistanceSquared`); B3 maps significance back through `BandForSignificance` (S3 simplify) | The two baselines put every agent in the same band by construction, not by floating-point luck |
 | B3 touches a component only when its band changes (old vs new significance, S3 simplify) | A competent Significance Manager user would do this; the baseline must not be a strawman |
+| **`ub.Enabled` arrives in S5**, not S6 as planned, and is read once in `OnWorldBeginPlay`; S7 adds the change callback (S5) | The budgeted path can't be built or tested without a way to select it. Reading the mode once, before any actor begins play, means no frame ever runs half in one mode and half in the other. The plan's other S6 cvars (`ub.BudgetMs`, `ub.Debug`) stay in S6 with the settings they override |
+| A budgeted run sets the cvar with `-ini:Engine:[ConsoleVariables]:ub.Enabled=1`, not `-ExecCmds` (S5) | `-ExecCmds` are queued as deferred commands (`UnrealEngine.cpp:2552`) and run inside the engine tick (`:2772–2810`), after the map has begun play, too late for a value read in `OnWorldBeginPlay`. The `-ini:` override is parsed into the config (`ConfigCacheIni.cpp:2317–2405`, not in Shipping: `ConfigCacheIni.h:57`), the `[ConsoleVariables]` section is applied at start-up (`ConfigCacheIni.cpp:6971`), and a cvar that a plugin registers later picks the value up (`ConfigUtilities.cpp:419–425`, `ConsoleManager.cpp:3328–3345`) |
+| The client also leaves the registry in `OnUnregister`, and re-joins in `OnRegister` when re-registered while playing (S5) | Streaming removal unregisters components before their `EndPlay`, possibly frames before; re-registration brings the native tick back without a new `BeginPlay`. Membership now follows exactly the moments the engine starts and stops the native tick (§8) |
+| The budgeted mode also clears `bStartWithTickEnabled`, and `TickComponent` has a guard (S5) | Disabling the tick alone wasn't enough: re-registration and `Activate()` turn it back on, which would update the client twice per frame (§8) |
+| Deferred registry changes are applied **after** the loop, not at the start of the next frame (S5) | The arrays are safe to change the moment the policy returns, and a removed client should not hold a slot for a whole frame. The first draft listed them as step 1 of the next frame (§6) |
+| Until S6, every client's max staleness is 0 (S5) | Significance doesn't exist yet. At 0 every client is due every frame, so the budgeted path must reproduce B0's work exactly, which S5 checks |
+| Lifetime tests run in the engine's own `FTestWorldWrapper` (S5) | It is what Epic's tick tests use (`Plugins/Tests/RuntimeTests/.../EngineRuntimeTests.cpp:159–162`): a game instance and game mode, so `GameMode->StartPlay` really dispatches actor `BeginPlay`, and `GFrameCounter` advances after every tick (`AutomationCommon.cpp:220–235`). A hand-built world without a game mode gets the subsystems' `OnWorldBeginPlay` but no actor `BeginPlay` (`World.cpp:6165–6179`); `AWorldSettings::NotifyBeginPlay` would dispatch it (`WorldSettings.cpp:363–379`), but the wrapper takes the real path |

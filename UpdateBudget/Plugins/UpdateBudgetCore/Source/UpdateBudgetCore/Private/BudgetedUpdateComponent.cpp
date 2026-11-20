@@ -19,7 +19,38 @@ UBudgetedUpdateComponent::UBudgetedUpdateComponent()
 void UBudgetedUpdateComponent::BeginPlay()
 {
 	Super::BeginPlay();
+	JoinBudget();
+}
 
+void UBudgetedUpdateComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// Leave explicitly: GC only nulls references when it runs (01b #8), so the registry must not rely on it.
+	LeaveBudget();
+	Super::EndPlay(EndPlayReason);
+}
+
+void UBudgetedUpdateComponent::OnRegister()
+{
+	Super::OnRegister();
+
+	// Re-registered while playing (ReregisterComponent): the engine brings the native tick back without a second
+	// BeginPlay (Actor.cpp:6443-6451), so the registry link comes back here. A first registration joins in BeginPlay.
+	if (HasBegunPlay())
+	{
+		JoinBudget();
+	}
+}
+
+void UBudgetedUpdateComponent::OnUnregister()
+{
+	// A level being streamed out unregisters its components before their EndPlay, possibly frames before
+	// (World.cpp:4190-4251), and the native tick function goes at that moment (ActorComponent.cpp:2147).
+	LeaveBudget();
+	Super::OnUnregister();
+}
+
+void UBudgetedUpdateComponent::JoinBudget()
+{
 	// The subsystem exists only in Game and PIE worlds; elsewhere the component simply ticks natively.
 	if (UUpdateBudgetSubsystem* Found = UWorld::GetSubsystem<UUpdateBudgetSubsystem>(GetWorld()))
 	{
@@ -27,19 +58,34 @@ void UBudgetedUpdateComponent::BeginPlay()
 	}
 }
 
-void UBudgetedUpdateComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+void UBudgetedUpdateComponent::LeaveBudget()
 {
-	// Unregister explicitly: GC only nulls references when it runs (01b #8), so the registry must not rely on it.
 	if (UUpdateBudgetSubsystem* Current = Subsystem)
 	{
 		Current->Unregister(this);
 	}
+}
 
-	Super::EndPlay(EndPlayReason);
+void UBudgetedUpdateComponent::SetDrivenByScheduler(bool bInDrivenByScheduler)
+{
+	bDrivenByScheduler = bInDrivenByScheduler;
+
+	// Registering a tick function re-enables it when bStartWithTickEnabled is set (ActorComponent.cpp:1747),
+	// so the flag must follow the mode too, or a re-registered component would tick natively again.
+	PrimaryComponentTick.bStartWithTickEnabled = !bInDrivenByScheduler;
+	SetComponentTickEnabled(!bInDrivenByScheduler);
 }
 
 void UBudgetedUpdateComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
+	// Driven by the scheduler, the native tick is off. If other code switched it back on (Activate() does,
+	// ActorComponent.cpp:2819), switch it off again instead of updating twice in one frame.
+	if (bDrivenByScheduler)
+	{
+		SetComponentTickEnabled(false);
+		return;
+	}
+
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	// The engine's DeltaTime is deliberately not forwarded: RunUpdate() measures time itself, from one clock.

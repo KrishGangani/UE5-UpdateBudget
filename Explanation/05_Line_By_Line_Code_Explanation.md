@@ -6,8 +6,10 @@
 |---|---|---|
 | A | Phase 4, F1–F3 (foundation) | `.uproject`, two `Target.cs`, two `Build.cs`, two module `.cpp`, `.uplugin`, config `.ini`, `Tools\*.bat` |
 | B | S1 (workload, native path only; B6 updated in S2) | `BudgetedUpdateComponent`, `UpdateBudgetSubsystem`, `UBDemoBrainComponent`, `UBDemoAgent`, `UBBenchmarkSubsystem` |
-| C | S2 (measurement tools) | `Tools\csv_stats.py`, `Tools
-un_bench.py` |
+| C | S2 (measurement tools) | `Tools\csv_stats.py`, `Tools\run_bench.py` |
+| D | S3 (baselines B2/B3) | `UBBaselineDriverSubsystem`, build files, `UBBenchmarkSubsystem.h` contract |
+| E | S4 (scheduling policy) | `UpdateBudgetScheduler`, scheduler tests, `Tools\run_tests.bat`, `run_bench.py` pinning, `analyse_baselines.py` |
+| F | S5 (tick function, registry, budgeted path) | `UpdateBudgetTickFunction`, `UpdateBudgetSubsystem` (rewritten), `BudgetedUpdateComponent` (lifecycle and mode), lifetime tests and their test types |
 
 ---
 
@@ -166,7 +168,7 @@ The build log line `[Adaptive Build] Excluded from UpdateBudgetCore unity file: 
 - The code passed a `code-review` pass (9 findings, all fixed or documented) and a 4-angle `simplify` audit (13 changes).
 - It builds with 0 errors and 0 warnings.
 
-### B1. `BudgetedUpdateComponent.h` (plugin, public)
+### B1. `BudgetedUpdateComponent.h` (plugin, public) *(as of S1; S5 additions in F3)*
 
 | Line(s) | What, why, and what breaks if it changes |
 |---|---|
@@ -188,7 +190,7 @@ The build log line `[Adaptive Build] Excluded from UpdateBudgetCore unity file: 
 | `int32 RegistryIndex = INDEX_NONE;` | The slot in the subsystem's array, enabling O(1) removal. `INDEX_NONE` (−1) means "not registered". Not a UPROPERTY: it is plain bookkeeping and nothing reflects it |
 | `double LastUpdateTime = -1.0;` | Negative means "never updated". That one state also defines "first update" for the time contract |
 
-### B2. `BudgetedUpdateComponent.cpp`
+### B2. `BudgetedUpdateComponent.cpp` *(as of S1; S5 changes in F3)*
 
 | Line(s) | What, why, and what breaks if it changes |
 |---|---|
@@ -208,7 +210,7 @@ The build log line `[Adaptive Build] Excluded from UpdateBudgetCore unity file: 
 | `DeltaSeconds = (PreviousUpdateTime < 0.0) ? 0.0 : LastUpdateTime - PreviousUpdateTime;` | 0 on the first update, then the exact time since the previous one, from one clock |
 | `OnBudgetedUpdate(static_cast<float>(DeltaSeconds));` | An explicit narrowing cast, so the double → float conversion is visible in the code |
 
-### B3. `UpdateBudgetSubsystem.h` / `.cpp` (plugin)
+### B3. `UpdateBudgetSubsystem.h` / `.cpp` (plugin) *(as of S1; rewritten in S5, F4: the rows below still hold unless F4 says otherwise)*
 
 | Line(s) | What, why, and what breaks if it changes |
 |---|---|
@@ -419,7 +421,7 @@ The policy is plain C++: no UObject, no world, no engine tick. It is given numbe
 | Part | What it proves |
 |---|---|
 | `#if WITH_DEV_AUTOMATION_TESTS` … `#endif` | Tests compile into Development builds and disappear from Test and Shipping (`UEBuildTarget.cs:6316`), so they cost a shipped game nothing |
-| `constexpr EAutomationTestFlags Flags = EditorContext \| ClientContext \| ProductFilter;` | **Where** a test may run (editor and game) and **which group** it belongs to (project tests). The macro refuses at compile time a test without exactly one filter flag (`AutomationTest.h:4127–4133`) |
+| `constexpr EAutomationTestFlags Flags = EditorContext \| ClientContext \| ProductFilter;` (in `UpdateBudgetTestFlags.h` since S5) | **Where** a test may run (editor and game) and **which group** it belongs to (project tests). The macro refuses at compile time a test without exactly one filter flag (`AutomationTest.h:4127–4133`) |
 | `IMPLEMENT_SIMPLE_AUTOMATION_TEST(FClass, "UpdateBudget.Scheduler.Name", Flags)` + `bool FClass::RunTest(const FString&)` | Declares a test class and registers it under a dotted name, which is what `Automation RunTests UpdateBudget.Scheduler` filters on. `TestEqual` / `TestTrue` record a failure and keep going, so one run reports every broken rule |
 | `NoClients` | Zero clients: nothing runs, nothing breaks, no over-budget flag |
 | `DeadlineOrder` | Five clients with a tie: run order is `1, 3, 4, 2, 0`, earliest deadline first, the tie broken by index |
@@ -461,3 +463,105 @@ The policy is plain C++: no UObject, no world, no engine tick. It is given numbe
 | **H4** table: autocorrelation of `UpdatesRun` at lags 6 and 30, and max / median | At the fixed 60 Hz step, lag 6 = 0.1 s and lag 30 = 0.5 s, the two band intervals. Values near 1 mean the load repeats with that period: agents given the same interval at the same moment stay in phase |
 | **H6** table: `UBBaseline/GameThread/Retune` median and p99, interval changes per frame | The baselines' own re-tune cost. The tick manager's cooling-down list cost is inside `GameThreadTime`, not in this column |
 | Optional drift check (`split_round`) | Rounds 1..split against the later rounds: shows whether the machine itself changed during a batch |
+
+---
+
+## Part F · Step S5: the tick function, the registry and the budgeted path
+
+S5 connects the S4 policy to real components. After S5, `ub.Enabled 1` makes the scheduler run every update; until S6 adds significance, every client's max staleness is 0, so each client is still updated exactly once per frame (02 §6, S5 notes). The lifetime rules come from reading the 5.8.4 source, and each one has a test (F6).
+
+### F1. `UpdateBudgetTickFunction.h` / `.cpp` (plugin, public)
+
+| Line(s) | What, why, and what breaks if it changes |
+|---|---|
+| `#include "Engine/EngineBaseTypes.h"` | Declares `FTickFunction`, `ELevelTick`, `ETickingGroup` and `TStructOpsTypeTraits`. The base must be complete to derive from it |
+| `USTRUCT() struct FUpdateBudgetTickFunction : public FTickFunction` + `GENERATED_BODY()` | `FTickFunction` is itself a USTRUCT (`EngineBaseTypes.h:182–183`), and the engine's own tick functions derive from it as USTRUCTs (`FActorTickFunction`, `:565–608`), as Niagara's does (`NiagaraWorldManager.h:47–69`). It is **not** a UPROPERTY of the subsystem: nothing needs to reflect or serialise it. It is a USTRUCT so it matches its base and the engine's pattern |
+| `UE_API FUpdateBudgetTickFunction();` and `UE_API` on the three overrides | The 5.8 export pattern (A6): the members are exported one by one, like `ENGINE_API` on `FActorTickFunction`'s members |
+| `UUpdateBudgetSubsystem* Subsystem = nullptr;` | A raw back-pointer to the owner, exactly like `FActorTickFunction::Target` (`EngineBaseTypes.h:570–575`). It needs no GC reference: the subsystem *contains* this struct, so the struct can't outlive it |
+| `ExecuteTick(float DeltaTime, ELevelTick, ENamedThreads::Type, const FGraphEventRef&) override` | The one function the tick manager calls (`EngineBaseTypes.h:524`, pure virtual). `DeltaTime` is the world's delta for this frame: for a function with no interval, `CalculateDeltaTime` returns it unchanged (`TickTaskManager.cpp:2825–2846`) |
+| `if (ensure(Subsystem)) Subsystem->RunFrame(DeltaTime);` | The subsystem sets the pointer before it registers the function, so a null here is a bug. `ensure` reports it once and skips the frame instead of crashing. `RunFrame` is private; this struct is the subsystem's `friend`, so nothing else can run a frame of updates |
+| `DiagnosticMessage()` → `"UUpdateBudgetSubsystem::RunFrame"`; `DiagnosticContext()` → `"UpdateBudget"` | Pure virtual in the base (`:532`). The tick manager prints them in `dumpticks` and in cycle reports. `DiagnosticContext` returns a `static const FName`, built once instead of on every call |
+| Constructor: `TickGroup = TG_PrePhysics; EndTickGroup = TG_PrePhysics;` | Both are already the defaults (`TickTaskManager.cpp:2361–2363`); they are **stated** because the fair comparison depends on them (the native baselines tick in `TG_PrePhysics`, B2). `EndTickGroup` = start group means "must finish within the group it started in", which a synchronous game-thread function always does |
+| *Not set:* `bCanEverTick`, `bStartWithTickEnabled` | `RegisterTickFunction` reads neither (`TickTaskManager.cpp:2406–2427`): only actor and component setup do (`ActorComponent.cpp:1739–1750`). Setting them would suggest they matter. The subsystem enables or disables the function explicitly |
+| `template<> struct TStructOpsTypeTraits<FUpdateBudgetTickFunction> … { enum { WithCopy = false }; };` | Tells the reflection system this struct can't be copied. `FTickFunction` deletes its copy assignment because the tick manager holds raw pointers to registered functions (`EngineBaseTypes.h:550–551`). **Without it** the generated struct operations would try to copy the struct and fail to compile |
+
+### F2. `UpdateBudgetScheduler.h`: one new field
+
+| Line | Why |
+|---|---|
+| `double LastUpdateTime = -1.0;` in `FBudgetClientState` | The per-frame deadline loop needs each client's last update time. Reading it from the component would touch N UObjects per frame (H5), so `RecordUpdate` mirrors it here, in every mode. **Negative = never updated**: then `Deadline = LastUpdateTime + MaxStaleness` is below any world time, so a new client is mandatory in its first frame, like a native tick that runs on the first frame. It is the **last** member, so the S4 tests' aggregate initialisation `{ Deadline, 0 }` is unchanged (04 §16). The struct grows from 16 to 24 bytes |
+
+### F3. `BudgetedUpdateComponent.h` / `.cpp`: lifecycle and mode (S5 changes)
+
+| Line(s) | What, why, and what breaks if it changes |
+|---|---|
+| `bool IsRegisteredWithBudget() const` / `bool IsDrivenByScheduler() const` | Read-only state for tests and, in S7, the debug view. They expose facts, not the link itself |
+| `BeginPlay`: `Super::BeginPlay(); JoinBudget();` | Unchanged behaviour, now through one helper. The component's tick function is already registered at this point (`Actor.cpp:4822–4825` registers it right before `BeginPlay`), which matters for F4's `Register` |
+| `EndPlay`: `LeaveBudget(); Super::EndPlay(…)` | As in S1; `LeaveBudget` is safe to call twice, because `OnUnregister` may already have run |
+| `OnRegister()` override: `Super::OnRegister(); if (HasBegunPlay()) JoinBudget();` | **Re-registration while playing** (`ReregisterComponent`, or a re-attach) unregisters and re-registers the component without a second `BeginPlay`; the engine re-registers its tick functions in `HandleRegisterComponentWithWorld` (`Actor.cpp:6443–6451`). Joining here keeps the budget in step. A **first** registration happens before `BeginPlay` (`HasBegunPlay()` is false), so it doesn't join twice |
+| `OnUnregister()` override: `LeaveBudget(); Super::OnUnregister();` | **Streaming removal** unregisters every actor's components (`Level.cpp:2184–2213`, calling `UnregisterAllComponents`) and routes `EndPlay(RemovedFromWorld)` only afterwards (`World.cpp:4196–4208` before `4244–4251`). Both steps are time-sliced, so they can be frames apart. The native tick is unregistered at the first step (`ActorComponent.cpp:2147`). Without this override, budgeted mode would keep updating a component its level had already taken out of the world. Leaving **before** `Super` matches `EndPlay`: leave while still fully valid |
+| `JoinBudget()` / `LeaveBudget()` (private) | One place for each direction, used by four lifecycle hooks. `LeaveBudget` copies the `TObjectPtr` into a raw local once (B2's efficiency note) |
+| `SetDrivenByScheduler(bool)` (private; only the subsystem calls it, as a friend) | Sets the mode flag, `PrimaryComponentTick.bStartWithTickEnabled = !bDriven`, and `SetComponentTickEnabled(!bDriven)`. **Why both tick calls:** `SetComponentTickEnabled` moves the tick function between the tick manager's enabled and disabled sets (`TickTaskManager.cpp:2439–2461`; a disabled function costs nothing per frame, only the enabled set is walked, `:1479–1485`). But whenever the tick function is registered again, the engine enables it if `bStartWithTickEnabled` is set (`ActorComponent.cpp:1747`). Without the second line, a re-registered component would tick natively **and** be scheduled: two updates per frame |
+| `TickComponent`: `if (bDrivenByScheduler) { SetComponentTickEnabled(false); return; }` **before** `Super` | The safety net. `Activate()` re-enables the tick (`ActorComponent.cpp:2815–2824`), and so could any other code. The guard turns it off again on its first native call and returns without updating, so the client is still updated exactly once per frame, by the scheduler. Turning off your own tick function from inside it is allowed: "Disabling during a tick frame will stop it from executing unless it is already in progress" (`EngineBaseTypes.h:357–364`). Cost in the native modes: one `bool` test per tick |
+| `bool bDrivenByScheduler = false;` | Plain bookkeeping, not a UPROPERTY: it is runtime state set by the subsystem |
+
+### F4. `UpdateBudgetSubsystem.h` / `.cpp`: the mechanism (rewritten in S5)
+
+| Line(s) | What, why, and what breaks if it changes |
+|---|---|
+| `#include "UpdateBudgetScheduler.h"`, `"UpdateBudgetTickFunction.h"` | The subsystem holds both by value, so their full definitions are needed |
+| `static TAutoConsoleVariable<int32> CVarUpdateBudgetEnabled(TEXT("ub.Enabled"), 0, TEXT("…"), ECVF_Default);` | The mode switch (02 §4.1), introduced in S5 (02 §13). `int32` like the engine's own switches (`tick.AllowBatchedTicks`, `TickTaskManager.cpp:59–62`). **`ECVF_Default`, not `ECVF_Cheat`:** cheat cvars can't be set from ini files (`01b #11`), and a budgeted run sets this one through the ini system (`-ini:Engine:[ConsoleVariables]:ub.Enabled=1`, 06 §26). Default 0 keeps every existing baseline unchanged |
+| `namespace UpdateBudget { constexpr double DefaultBudgetMs = 2.0; constexpr double UnscoredMaxStalenessSeconds = 0.0; }` | Two S5 stand-ins with names that say so. 2.0 ms is the design default (02 §7); S6 replaces it with the settings value and `ub.BudgetMs`. **Max staleness 0** makes every client due every frame, so S5's budgeted path does exactly B0's work, which is what S5 checks; S6 replaces it with significance |
+| `DEFINE_LOG_CATEGORY_STATIC(LogUpdateBudget, Log, All);` | The plugin's log category returns (A6 said it would when the code first logs). `STATIC` keeps it private to this file |
+| `OnWorldBeginPlay`: `bBudgeted = CVar…GetValueOnGameThread() != 0;` | The mode is read **once per world**, before any actor's `BeginPlay` (`World.cpp:6165–6174`), so every client registers into a known mode. S7 adds the live switch |
+| The loop `ApplyMode(*Client)` over `Clients` | Normally empty here. If something registered before the mode was read, it gets the mode too, so it can never be updated both natively and by the scheduler. S7's live switch will reuse the same helper |
+| `TickFunction.Subsystem = this; TickFunction.SetTickFunctionEnable(bBudgeted); TickFunction.RegisterTickFunction(InWorld.PersistentLevel);` | Registered in **every** mode, so S7's switch only has to enable it; disabled, it costs nothing per frame. **The enable state is set first**: on an unregistered function `SetTickFunctionEnable` only stores the state (`TickTaskManager.cpp:2457–2460`), and registration then puts it straight into the right set, as Niagara does (`NiagaraWorldManager.cpp:462–463`). **Registered in `OnWorldBeginPlay`, never `Initialize`:** a registered function starts ticking at once (`01b #2`). On the **persistent level**, because a tick function lives in one level's tick list, and the persistent level lives as long as the world (Mass: `MassProcessingPhaseManager.cpp:485–486`) |
+| `PostGarbageCollectHandle = FCoreUObjectDelegates::GetPostGarbageCollect().AddUObject(this, &UUpdateBudgetSubsystem::HandlePostGarbageCollect);` | **Added after the S5 code review.** GC nulls the entry of a component collected without `EndPlay` (`01b #8`). Before this hook only the scheduler's loop ever found such entries, so in the native modes a dead slot stayed for the rest of the run and the CSV `Clients` count was too high. The delegate fires after every collection (`UObjectGlobals.h:3490`, broadcast at `GarbageCollection.cpp:5943`), the engine's own `UWorld` and `UNetDriver` bind to it the same way (`World.cpp:1765`, `NetDriver.cpp:839`), and `Deinitialize` removes it. One O(N) `IsValid` pass per collection, roughly once a minute, in every mode |
+| `HandlePostGarbageCollect()`: `if (bRunningScheduler) bHasInvalidClients = true; else RemoveInvalidClients();` | Collections run between frames (`LevelTick.cpp:1968–1971`), so normally the arrays can change at once. If an update forced a collection inside the loop, the entries are only marked, and the loop removes them when it ends: the arrays never change under the policy |
+| `UE_LOG(LogUpdateBudget, Display, "… mode (ub.Enabled %d). Update timer resolution: %.1f ns.", …)` | One line per world says which mode is running, so a benchmark log proves its mode (09, S5). `GetSecondsPerCycle64()` × 10⁹ is the tick length of the timer used in `RunClient`, recorded so the precision of every measured cost is known |
+| `Register`: `if (Client->Subsystem) { ensure(Client->Subsystem == this); return; }` | Idempotent: registering twice, or while the add is still pending, does nothing. A link to a **different** subsystem would be a bug, which the `ensure` reports |
+| `ApplyMode(*Client);` **before** the add; `ApplyMode`: `if (Client.IsDrivenByScheduler() != bBudgeted) Client.SetDrivenByScheduler(bBudgeted);` | **One rule in one place** (simplify: `OnWorldBeginPlay` and `Register` had two forms of it). Applied at once, even when the add itself is deferred. A component spawned inside an update has just had its native tick registered and enabled, which would run it in a later tick group of this frame (`EngineBaseTypes.h:334–341`). Disabling it also removes it from that newly-spawned list (`TickTaskManager.cpp:1906–1909`). **Compared, not only set in budgeted mode** (S5 code review): a client that was scheduler-driven in another world and joins a native one must get its tick back, or nothing would ever update it. In the normal native case the comparison is false and nothing is done |
+| `if (bRunningScheduler) PendingAdds.Add(Client); else AddClient(Client);` | **Why defer:** the policy reads `States` through a raw pointer (05 E2). `TArray::Add` may reallocate, and the policy would then read freed memory. `PendingAdds` is a UPROPERTY, so GC sees the waiting clients |
+| `Unregister`: `if (Index == INDEX_NONE) PendingAdds.RemoveSingleSwap(Client, …)` | A client that registered and unregistered inside the same loop never reaches the arrays: the add and the removal cancel out |
+| `else if (… Clients[Index] == Client) { if (bRunningScheduler) { Clients[Index] = nullptr; bHasInvalidClients = true; } else RemoveClientAt(Index); }` | **Deferred removal nulls the slot**: no element moves, so every index the policy holds stays valid, and the loop's `IsValid` check skips the slot. Between frames, the O(1) swap-remove runs at once |
+| `DetachClient(Client);` at the end of `Unregister`; `DetachClient` is `static` and accepts null | The link is cleared **in every case**, so a component never points at a registry it isn't in. **Null-tolerant** (simplify): every caller that walks the arrays may meet an entry GC has already cleared, and the four `if (Client)` checks that came with it are gone |
+| `AddClient`: `Client->RegistryIndex = Clients.Add(Client); States.AddDefaulted_GetRef().LastUpdateTime = Client->GetLastUpdateTime();` | Both arrays grow together, so the index is shared. The hot state starts from the client's **own** last update time: a client re-registered after updates keeps its staleness, and one that waited in `PendingAdds` loses nothing. `AddDefaulted_GetRef` (`Array.h:3067`) constructs the element in place and returns it |
+| `RemoveClientAt`: `Clients.RemoveAtSwap(…); States.RemoveAtSwap(…);` then fix the moved entry's `RegistryIndex` | The S1 swap-remove, now on both arrays with the same index, so they stay parallel. The null check on the moved entry is kept (S1 review) |
+| `RemoveInvalidClients()`: backwards loop, `if (!IsValid(Client)) { DetachClient(Client); RemoveClientAt(Index); }` | Removes the slots nulled during the loop **and** any client that became invalid without `EndPlay` (garbage, or nulled by GC). **Backwards**, because a swap moves the last element into `Index`, and the last element has already been checked. A garbage component's link is cleared, so a later `EndPlay` finds nothing to do |
+| `RunFrame`: `for (FBudgetClientState& State : States) State.Deadline = State.LastUpdateTime + UnscoredMaxStalenessSeconds;` | **Step 1** of 02 §6: deadlines from the dense array only. S6 adds significance here. One edge (S5 code review): in a frame where world time doesn't advance (`DeltaSeconds` = 0), a client updated last frame has `Deadline == NextFrameTime`, which is not mandatory under S4's strict `<`, so only the budget decides who runs. Nothing is overdue in such a frame (an update would receive 0 s), and fixed-step and normal play never produce one; kept as is |
+| `bRunningScheduler = true; Scheduler.Run(States, Now + DeltaSeconds, DefaultBudgetMs, [this](int32 Index) { return RunClient(Index); }); bRunningScheduler = false;` | **Step 2.** `States` converts to the `TConstArrayView` the policy takes, without a copy. `Now + DeltaSeconds` is the next frame's start (02 §6). The lambda converts to the policy's `TFunctionRef` (06 §22). The S4 stats are not yet used; S6 publishes them |
+| `if (bHasInvalidClients) RemoveInvalidClients();` then `AddClient` for each valid entry of `PendingAdds` (an invalid non-null one is detached), then `PendingAdds.Reset()` | **Step 3**, right after the loop: nothing reads the arrays any more. The removal pass runs only when something was invalid, so a normal frame doesn't pay an O(N) scan. A waiting client that became garbage is **detached** rather than dropped silently (S5 code review), so it can't keep reporting itself as registered. `Reset` keeps the allocation for the next frame (`Array.h:2469`) |
+| `RunClient`: `if (!IsValid(Client)) { bHasInvalidClients = true; return 0.0; }` | The **`IsValid` guard** (`01b #8`): null (unregistered during this loop, or nulled by GC) or garbage (`Object.h:1886`). It costs the budget nothing |
+| `const uint64 StartCycles = FPlatformTime::Cycles64(); Client->RunUpdate(); return FPlatformTime::ToMilliseconds64(FPlatformTime::Cycles64() - StartCycles);` | The measured cost the budget is spent on. `Cycles64()` is `QueryPerformanceCounter` on Windows (`WindowsPlatformTime.h:39–44`); `ToMilliseconds64` converts with the measured frequency (`GenericPlatformTime.h:201–205`). Integer cycles avoid `Seconds()`'s large offset (`WindowsPlatformTime.h:22–29`). **Two timer reads per update** are the budgeted path's own overhead; one read per update is a Phase 8 candidate (11) |
+| `RecordUpdate` (inline): `States[Client.RegistryIndex].LastUpdateTime = UpdateTime;` when the index isn't `INDEX_NONE` | **The sync point the S1 design reserved** (B2). It runs in every mode, so the cost is equal and a later switch (S7) starts from correct times. `INDEX_NONE` means the client is waiting in `PendingAdds`, for example if it ran its own update in `BeginPlay`; `AddClient` copies the time when the add happens |
+| `Deinitialize`: `TickFunction.UnRegisterTickFunction();` and the GC delegate removed first, then one loop `for (… Registry : { &Clients, &PendingAdds })` detaches every client in both arrays, then all three arrays are emptied, then `Super` | The tick function must not stay registered once the subsystem is going (`01b` §2). `~FTickFunction` would unregister it too (`TickTaskManager.cpp:2396–2399`), but only when the memory is freed, after GC. Deinitialize runs during world cleanup (`World.cpp:6486`) |
+| `friend struct FUpdateBudgetTickFunction;` and `RunFrame`/`RunClient` private | Only the tick function can run a frame. A second `RunFrame` call per frame would update everyone twice |
+
+### F5. `Private/Tests/UpdateBudgetTestTypes.h` / `.cpp`
+
+| Line(s) | Why |
+|---|---|
+| A header in `Private/Tests/` | UHT reads only headers, so reflected test types need one. The module's `Private` folder is on its include path (`UEBuildModuleCPP.cs:471–473`), hence `#include "Tests/UpdateBudgetTestTypes.h"`. Like the engine's own test classes in `Engine/Private/Tests/` (for example `AutoRTFMTestCameraShake.h:8`), they compile in every configuration; they are tiny and never spawned outside the tests |
+| `UCLASS(NotBlueprintable, HideDropdown)` | Hidden from class pickers and not usable as a Blueprint base, the same specifiers the engine uses on its test classes |
+| `TFunction<void(UUpdateBudgetTestComponent&)> OnUpdate;` called from `OnBudgetedUpdate` | Each test decides what happens **inside** an update: destroy, spawn, unregister. A `TFunction` owns its callable (06 §22: a `TFunctionRef` must not be stored) |
+| `AUpdateBudgetTestActor`: no tick, one `CreateDefaultSubobject<UUpdateBudgetTestComponent>` | The smallest actor that carries a client. Not a scene component, so no root component is needed |
+
+### F6. `Private/Tests/UpdateBudgetLifetimeTests.cpp` and `UpdateBudgetTestFlags.h`
+
+| Part | What it proves |
+|---|---|
+| `UpdateBudgetTestFlags.h`: `UpdateBudgetTests::Flags` | The test flags (E3) in one header that both test files include (simplify: the lifetime tests had a copy). A filter change now reaches every suite. It is a separate header because the scheduler tests must not pull in the UHT test types and `GameFramework/Actor.h` |
+| `using FAction = TFunction<void(UUpdateBudgetTestComponent&, int32 Update)>;` and `Spawn(Log, Index == K ? Action : FAction())` | Each test defines its in-update action **once** and gives it only to the client that performs it (simplify: every client used to capture a "am I the one?" flag) |
+| `FTestBudgetWorld` | The engine's `FTestWorldWrapper` (06 §28) plus the mode. **Member order is deliberate**: `FTestConsoleVariable Enabled` is declared first, so it is destroyed **last**, after the world (04 §18). Restoring the cvar earlier would change the mode under a living world once S7 adds the live switch |
+| `Enabled.Set(…)` before `CreateTestWorld`/`BeginPlayInTestWorld` | The mode is read in `OnWorldBeginPlay`, inside `BeginPlayInTestWorld` (`AutomationCommon.cpp:185`) |
+| `FUpdateLog` declared **before** the world in every test | The components' lambdas write into it by reference, so it must outlive the world |
+| Counts kept in `FUpdateLog`, never read from a destroyed component | `UWorld::Tick` may collect garbage at its end (`LevelTick.cpp:1968–1971`), so a destroyed component may be freed after any test tick |
+| `UpdatesOutOfPlay`: an update when `!HasBegunPlay() \|\| !IsRegistered()` | The definition of a **stale entry**: the registry updated something that had left play or left the world. Every test asserts it stays 0 |
+| `Spawn` after `BeginPlayInTestWorld` | The actor begins play inside `SpawnActor` (`Actor.cpp:4509–4529`), so spawn order is registry order. With equal deadlines the policy runs clients in index order (S4 `DeadlineOrder`), which makes "before" and "after" in a frame exact |
+| `ModeAtBeginPlay` | Native and budgeted worlds: 4 clients registered; driven-by-scheduler and native-tick state match the mode; **exactly 3 updates in 3 frames** in both modes |
+| `DestroyDuringUpdate` | In its 2nd update, client 2 destroys client 0 (already run this frame), **itself**, and client 5 (not run yet). Client 5 is skipped (1 update), 3 clients remain, the survivors keep exactly one update per frame |
+| `SpawnDuringUpdate` | Client 1 spawns one client and spawns-then-destroys another inside its update. The kept one is registered after the loop, driven by the scheduler with its native tick off, and first updated **next frame**; the cancelled one never registers (02 §12 item 7) |
+| `LevelUnloadOrder` | The streaming-removal order: `UnregisterAllComponents` first (once between frames, once from inside an update, which is deferred), then `RouteEndPlay(RemovedFromWorld)` later. The client stops updating at the first step, and the later `EndPlay` changes nothing |
+| `NoDoubleUpdate` | `ReregisterComponent()` keeps the client registered with its native tick off. `Activate(true)` really turns the native tick on (asserted), and the guard turns it off again. Both clients get exactly 4 updates in 4 frames |
+| `WorldTeardown` | A frame whose updates spawn and destroy clients, then the world's `EndPlay` (0 clients, no component keeps a link), then `DestroyTestWorld(true)`: `Deinitialize`, a full garbage collection, and a weak pointer proving the subsystem is gone. The engine never ends a world inside a tick group (02 §8), so this is the worst real case of "end play mid-frame" |
+| `Test.Wrapper.ForwardErrorMessages(this)` | The wrapper records its own failures (for example a missing game mode) without logging them; this turns them into test errors |

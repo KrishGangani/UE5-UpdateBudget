@@ -1,19 +1,31 @@
-// UpdateBudgetCore - the world-level registry (step S1: registry + per-frame telemetry; scheduling arrives in S5).
+// UpdateBudgetCore - the world-level registry and the mechanism that runs the scheduling policy each frame.
 
 #pragma once
 
 #include "BudgetedUpdateComponent.h"
 #include "Subsystems/WorldSubsystem.h"
+#include "UpdateBudgetScheduler.h"
+#include "UpdateBudgetTickFunction.h"
 #include "UpdateBudgetSubsystem.generated.h"
 
 #define UE_API UPDATEBUDGETCORE_API
 
 /**
- * Owns the registry of UBudgetedUpdateComponents in one world and publishes per-frame telemetry.
+ * Owns the registry of UBudgetedUpdateComponents in one world, runs their updates in budgeted mode,
+ * and publishes per-frame telemetry.
  *
- * It is a *tickable* world subsystem because its own Tick runs after TG_PostPhysics (01b section 2):
- * by then every TG_PrePhysics update of the frame has finished, so the frame's totals are complete.
- * Scheduling (step S5) uses a separate tick function in TG_PrePhysics.
+ * Mode (cvar ub.Enabled, read once in OnWorldBeginPlay):
+ *   native (0)    every client updates from its own native tick, as in the baselines B0-B3;
+ *   budgeted (1)  native ticks are off, and FUpdateBudgetTickFunction calls RunFrame() in TG_PrePhysics,
+ *                 which hands the hot client states to FUpdateBudgetScheduler.
+ *
+ * Registry: two parallel arrays with the same index. Clients is a UPROPERTY (seen by GC); States is the hot data
+ * the per-frame loops read without touching a UObject (H5). While the scheduler runs, adds and removals are
+ * deferred, because it reads States through a raw pointer: a removal nulls the slot and an add waits in PendingAdds.
+ * Both are applied right after the loop.
+ *
+ * It is a *tickable* world subsystem because its own Tick runs after TG_PostPhysics (01b section 2): by then every
+ * TG_PrePhysics update of the frame has finished, so the frame's totals are complete.
  *
  * Limitation: CSV stats use ECsvCustomStatOp::Set, so if several game worlds tick in one process
  * (multi-client PIE), the capture shows the last world's values. Benchmarks run one standalone world.
@@ -24,30 +36,46 @@ class UUpdateBudgetSubsystem : public UTickableWorldSubsystem
 	GENERATED_BODY()
 
 public:
-	/** Links a client to this subsystem (sets its Subsystem and RegistryIndex). Called from the client's BeginPlay. */
+	/** Links a client to this subsystem and applies the mode to it. Called from the client's BeginPlay (or OnRegister). */
 	UE_API void Register(UBudgetedUpdateComponent* Client);
 
-	/** Removes a client in O(1) and clears its link. Called from the client's EndPlay. */
+	/** Removes a client in O(1) (deferred while the scheduler runs) and clears its link. Called from EndPlay or OnUnregister. */
 	UE_API void Unregister(UBudgetedUpdateComponent* Client);
 
 	/**
 	 * The single per-update sync point, called in every mode right after the client stamped its new update time.
+	 * It mirrors that time into the client's hot state, so the deadline loop never reads the component.
 	 * Inline because it runs once per update (thousands of times per frame) and is only a few instructions.
 	 * @param PreviousUpdateTime The client's update time before this one; negative for its first update (counted, no gap).
 	 */
 	void RecordUpdate(const UBudgetedUpdateComponent& Client, double PreviousUpdateTime)
 	{
 		++FrameUpdates;
+		const double UpdateTime = Client.GetLastUpdateTime();
 		if (PreviousUpdateTime >= 0.0)
 		{
-			FrameMaxGapSeconds = FMath::Max(FrameMaxGapSeconds, Client.GetLastUpdateTime() - PreviousUpdateTime);
+			FrameMaxGapSeconds = FMath::Max(FrameMaxGapSeconds, UpdateTime - PreviousUpdateTime);
+		}
+		// INDEX_NONE while the client waits in PendingAdds; it is copied from the client when the add is applied.
+		if (Client.RegistryIndex != INDEX_NONE)
+		{
+			States[Client.RegistryIndex].LastUpdateTime = UpdateTime;
 		}
 	}
 
+	/** Registered clients. Between frames this counts no removed or collected ones. */
 	int32 GetNumClients() const { return Clients.Num(); }
 
+	/** True in budgeted mode: the scheduler runs the updates and native ticks are off. */
+	bool IsBudgeted() const { return bBudgeted; }
+
+	//~ Begin UWorldSubsystem
+	/** Reads the mode, applies it, and registers the scheduler's tick function (01b #2: never in Initialize). */
+	UE_API virtual void OnWorldBeginPlay(UWorld& InWorld) override;
+	//~ End UWorldSubsystem
+
 	//~ Begin USubsystem
-	/** Detaches every client still registered, so none keeps a reference to a subsystem that is going away. */
+	/** Unregisters the tick function and detaches every client still registered. */
 	UE_API virtual void Deinitialize() override;
 	//~ End USubsystem
 
@@ -63,8 +91,31 @@ protected:
 	//~ End UWorldSubsystem
 
 private:
-	/** Swap-removes the entry at Index and fixes the moved entry's index. Tolerates a null moved entry. */
+	friend struct FUpdateBudgetTickFunction;
+
+	/** One frame of budgeted updates: deadlines, the policy, then the adds and removals deferred during the loop. */
+	void RunFrame(float DeltaSeconds);
+
+	/** Runs one client for the policy and returns its measured cost in ms (0 for an entry that is no longer valid). */
+	double RunClient(int32 Index);
+
+	/** Makes the client scheduler-driven in budgeted mode and native otherwise; does nothing if it already is. */
+	void ApplyMode(UBudgetedUpdateComponent& Client) const;
+
+	/** Appends a client to both arrays; its hot state starts from the client's own last update time. */
+	void AddClient(UBudgetedUpdateComponent* Client);
+
+	/** Swap-removes the entry at Index from both arrays and fixes the moved entry's index. Tolerates a null moved entry. */
 	void RemoveClientAt(int32 Index);
+
+	/** Removes every entry that is null or no longer valid (nulled during the loop, or collected without EndPlay). */
+	void RemoveInvalidClients();
+
+	/** After each garbage collection: removes the entries GC nulled (deferred if a collection runs inside the loop). */
+	void HandlePostGarbageCollect();
+
+	/** Clears a client's link to this subsystem. Accepts null (an entry GC has already cleared). */
+	static void DetachClient(UBudgetedUpdateComponent* Client);
 
 	/**
 	 * Every registered client. A UPROPERTY so the garbage collector sees these references.
@@ -72,6 +123,25 @@ private:
 	 */
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UBudgetedUpdateComponent>> Clients;
+
+	/** Hot per-client data, same index as Clients. */
+	TArray<FBudgetClientState> States;
+
+	/** Clients registered while the scheduler was running; added after the loop. */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UBudgetedUpdateComponent>> PendingAdds;
+
+	FUpdateBudgetScheduler Scheduler;
+	FUpdateBudgetTickFunction TickFunction;
+	FDelegateHandle PostGarbageCollectHandle;
+
+	bool bBudgeted = false;
+
+	/** True while the scheduler is running clients: registry changes are deferred. */
+	bool bRunningScheduler = false;
+
+	/** Set when the loop met a null or invalid entry (or GC ran inside it); RunFrame removes them after the loop. */
+	bool bHasInvalidClients = false;
 
 	/** This frame's totals, published and reset in Tick(). */
 	int32 FrameUpdates = 0;

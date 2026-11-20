@@ -250,6 +250,44 @@ The driver's own re-tuning grows roughly linearly with N, at about 0.1 µs per a
 
 ---
 
+## Step S5 · Tick function, registry and budgeted path (2026-11-21)
+
+| # | Check | Result |
+|---|---|---|
+| S5-a | **Build** | ✅ Development editor target, **0 errors, 0 warnings** (MSVC 14.44.35229; 18 actions, 11.8 s). Every changed source was older than the job start, so the build compiled the final code, after the code-review and simplify fixes. Afterwards only two code comments changed (corrected line citations: `ActorComponent.cpp:1747`, `Actor.cpp:4824`); S6's build compiles them |
+| S5-b | **All automation tests** (`Tools\run_tests.bat UpdateBudget`, headless, through the job queue) | ✅ **14 / 14 passed**, `TEST COMPLETE. EXIT CODE: 0`, 0 errors and **0 warnings** in the log. Lifetime (6): `ModeAtBeginPlay`, `DestroyDuringUpdate`, `SpawnDuringUpdate`, `LevelUnloadOrder`, `NoDoubleUpdate`, `WorldTeardown`. Scheduler (8): unchanged from S4, all pass. The deprecated `-ReportOutputPath` warning of S4-c is gone (`-ReportExportPath` verified) |
+| S5-c | **The timer** | The subsystem's begin-play line reads `Update timer resolution: 100.0 ns` on this machine: `QueryPerformanceCounter` runs at 10 MHz. One demo update (about 5.2 µs, S2-f) spans about 52 ticks, so a single measurement is quantised to about ±2%; the moving average smooths it |
+| S5-d | **Budgeted path = native path** (uncooked editor `-game -nullrhi`, fixed step, N = 1,000, seed 1, warm-up 1 s, capture 5 s; run tags `s5eq_B0` and `s5eq_UB`, one queue job, 20.4 s) | ✅ **The two per-agent run reports are identical**: all 1,000 rows (final position, patrol time, last update time, age at report, state changes; 500 state changes in both). Same start hash `0x7F189215` as S2-b. Both exited normally with 0 errors; the 21 warnings in each log are all the engine's `LogEditorDataStorageUI` (editor binary in `-game`, as in F-2). **The `-ini:` route works as read in the source:** the budgeted log shows `CVar [[ub.Enabled:1]] deferred - dummy variable created` (`ConfigUtilities.cpp:424`), then `Budgeted mode (ub.Enabled 1)` once the plugin registered the variable. The native run shows `Native mode (ub.Enabled 0)` |
+
+**What S5-d is for.** Until S6, every client's max staleness is 0, so the scheduler must update each agent once per frame at the same world times as its native tick. The player camera's cached view, which the brains sense from, is updated only after all tick groups (`LevelTick.cpp:1828–1847`), so every agent sees the same camera in both modes whatever the update order. Positions, patrol times, last update times and even state changes must therefore match exactly.
+
+**Audit trail for S5:**
+- `code-review` (medium): **no important bugs**; 8 smaller findings (1 pre-existing, 7 minor). Fixed:
+  - **GC-nulled entries stayed in a native-mode registry** (pre-existing since S1): only the scheduler's loop ever removed them, so the CSV `Clients` count could be too high. Now removed after every garbage collection, in every mode (05 F4).
+  - **A pending client that became garbage stayed linked**: now detached.
+  - **`Register` only applied budgeted mode**: a client that was scheduler-driven elsewhere would never get its native tick back in a native world. Now the mode is compared and applied either way.
+  - The `FRunClient` comment still described deadlines being changed during the loop: corrected.
+  - 03 had not been updated: done.
+- Documented rather than changed (02 §12, 05 F4):
+  - A client re-registered **inside** another client's update misses one frame. Restoring its slot isn't worth the complexity for a case this rare.
+  - The native tick controls (`Deactivate`, `SetComponentTickEnabled(false)`, `TickInterval`, the owner's actor tick, `bTickEvenWhenPaused`) don't steer the scheduler.
+  - A frame with zero world delta leaves every client optional (nothing is overdue in such a frame).
+- `simplify` (4 parallel reviews: reuse, simplification, efficiency, altitude). Applied:
+  - `DetachClient` accepts null: four null checks and one of `Deinitialize`'s two loops are gone.
+  - One `ApplyMode` helper for the two places that apply the mode.
+  - The test flags are in one shared header.
+  - Each test's in-update action is passed only to the client that performs it.
+- Skipped, with reasons:
+  - **One timer read per update** (chain the timestamps; about 30–50 ns per update saved): it would change what is measured (the policy's own bookkeeping would enter the cost). Phase 8 candidate (11).
+  - **Skip the sort when the order is already sorted** (true for S5's equal deadlines): S6 replaces those deadlines; the seeded-sort candidate is already in 11.
+  - **Write the `LastUpdateTime` mirror only in budgeted mode**: equal cost in every mode is a design rule (02 §9), and S7's live switch needs correct times.
+  - **A null-only scan after GC**: it would leave garbage entries in place, and keep them alive, when garbage elimination is off. The `IsValid` pass runs once per collection.
+  - **`TWeakObjectPtr` registry arrays** (would remove the GC hook): a design change to the GC-visible registry of 02 §8, for a rare edge case that the hook already handles.
+  - **Joining and leaving in a `RegisterComponentTickFunctions` override** (would remove the guard and the `bStartWithTickEnabled` write): it depends on a super-call check in the engine and on bookkeeping that S7's live switch would have to bypass. The current mechanism uses only public controls and is covered by `NoDoubleUpdate`.
+  - **A `SetComponentTickEnabled` override**: a second mechanism for the rule the guard already enforces, which direct `PrimaryComponentTick` changes would bypass anyway.
+
+---
+
 ## Phases 7–8 (to be written)
 
 - Functional, edge-case, stability and scalability tests.

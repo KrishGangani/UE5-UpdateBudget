@@ -1,7 +1,7 @@
 // UpdateBudgetCore - automation tests for the scheduling policy, with fake clients and fake costs (no world needed).
 // Run: Tools\run_tests.bat (editor, headless), filter "UpdateBudget.Scheduler".
 
-#include "Misc/AutomationTest.h"
+#include "Tests/UpdateBudgetTestFlags.h"
 #include "UpdateBudgetScheduler.h"
 
 #include <limits>   // std::numeric_limits<double>::quiet_NaN (TNumericLimits has no NaN in 5.8)
@@ -10,8 +10,6 @@
 
 namespace UpdateBudgetTests
 {
-	constexpr EAutomationTestFlags Flags = EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter;
-
 	/** Clients whose deadlines are given; all in category 0. */
 	TArray<FBudgetClientState> MakeClients(std::initializer_list<double> Deadlines)
 	{

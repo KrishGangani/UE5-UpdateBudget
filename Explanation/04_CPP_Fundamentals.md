@@ -140,3 +140,47 @@ FState S{ 2.5, 1 };                                        // fills the members 
 void Make(std::initializer_list<double> Values);           // lets callers write Make({ 1.0, 2.0, 3.0 })
 ```
 - **In our code (S4 tests):** `Clients.Add({ Deadline, 0 })` and `MakeClients({ 5.0, 1.0, 3.0 })` make test inputs short enough to read at a glance. Members with defaults (`= 0.0`) can still be aggregate-initialised since C++14.
+
+## 17. Template specialisation: telling a library about your type
+
+```cpp
+template<typename T> struct TStructOpsTypeTraitsBase2 { enum { WithCopy = true /* … */ }; };   // the general rule
+template<> struct TStructOpsTypeTraits<FUpdateBudgetTickFunction>                              // the rule for one type
+    : public TStructOpsTypeTraitsBase2<FUpdateBudgetTickFunction> { enum { WithCopy = false }; };
+```
+- **What it is.** `template<>` writes a version of a template for one exact type. Code that asks `TStructOpsTypeTraits<X>::WithCopy` gets the answer for `X`; every other type keeps the general one.
+- **Why:** the reflection system has to know whether it may copy a struct. A *trait* answers that at compile time, with no runtime cost and no change to the struct itself.
+- **In our code (S5):** `FUpdateBudgetTickFunction` must never be copied (the tick manager holds raw pointers to it), so its trait says `WithCopy = false`, exactly like the engine's `FActorTickFunction`.
+
+## 18. Destruction order and RAII test fixtures
+
+```cpp
+struct FTestBudgetWorld
+{
+    FTestConsoleVariable Enabled{ TEXT("ub.Enabled") };   // constructed 1st, destroyed LAST
+    FTestWorldWrapper Wrapper;                             // constructed 2nd, destroyed FIRST
+};
+```
+- **The rule.** Members are constructed in the order they are **declared** and destroyed in the **reverse** order. Local variables work the same way.
+- **RAII** ("resource acquisition is initialisation") puts cleanup in destructors, so it happens on every exit path, early `return` included.
+- **In our code (S5):** the world must be destroyed before the cvar is restored, so the cvar is declared first. In each test the `FUpdateLog` is declared before the world, because the components' lambdas write into it until the world is gone.
+
+## 19. Lambda init-captures and references that must outlive the lambda
+
+```cpp
+TFunction<void(int32)> Action = …;
+auto OnUpdate = [&Log, Id, Action = MoveTemp(Action)](UUpdateBudgetTestComponent& Self) { ++Log.Updates[Id]; Action(…); };
+```
+- **Init-capture** (`Name = expression`, C++14) creates a new member of the lambda from any expression. `Action = MoveTemp(Action)` moves the function object in instead of copying it.
+- **Capture by reference** (`&Log`) stores only an address: the lambda is valid only while `Log` lives. Stored lambdas (in a `TFunction` member) make that rule easy to break, which is why the test declares `Log` before the world that owns the components.
+- **In our code (S5):** the lifetime tests' `Spawn` helper builds each client's update hook this way (05 F6).
+
+## 20. Never change a container while something iterates it
+
+```cpp
+const FBudgetClientState* State = States.GetData();   // a raw pointer into the array's memory
+States.Add({});                                       // may move the whole array: State now points at freed memory
+```
+- **Why it breaks.** A `TArray` (like `std::vector`) keeps its elements in one block. When it grows past its capacity it allocates a new block, copies the elements and frees the old one. Every pointer, reference, view and iterator into the old block is now dangling. Removing an element shifts or swaps elements, so saved indices change meaning too.
+- **The fix.** Defer the change: record it during the loop and apply it after. Replacing an element in place (`Clients[i] = nullptr`) is safe, because nothing moves.
+- **In our code (S5):** the scheduler reads `States` through `GetData()` (05 E2), and an update may spawn or destroy other clients. So `Register` queues into `PendingAdds` and `Unregister` nulls the slot while the scheduler runs (05 F4).

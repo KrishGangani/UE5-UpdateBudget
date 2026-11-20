@@ -12,3 +12,5 @@
 | A binary search (`Algo::LowerBoundBy`) for the mandatory prefix | The linear scan costs about 1–3 µs per frame at N = 4,000 | Too small to matter |
 | Sort (deadline, index) pairs instead of indices | 3–6% faster than the index sort with raw reads; adds a 64 KB buffer | Revisit only after the seeded sort |
 | A partial sort or heap (only the clients that can fit) | Not measured yet | 02 §12 item 6: v1 uses a full sort, measured at N = 4,000 first |
+| **One timer read per update** instead of two (S5 simplify): the reading that ends one client starts the next | `RunClient` reads `QueryPerformanceCounter` twice per update; the efficiency review estimated 10–25 ns per read, about 0.1–0.2 ms per frame at N = 4,000 (an estimate, not a measurement). The timer's resolution is 100 ns (09, S5-c) | The policy's own bookkeeping would then be counted as client cost. Measure the two-read overhead with an Insights scope first |
+| Check `Algo::IsSorted` before sorting (S5 simplify) | With S5's equal deadlines the order is already sorted every frame | S6's significance-derived deadlines change every frame; decide together with the seeded sort above |

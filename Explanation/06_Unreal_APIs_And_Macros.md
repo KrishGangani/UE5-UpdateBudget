@@ -58,8 +58,8 @@
    PrivateDependencyModuleNames.Add("UpdateBudgetCore");
    ```
 8. **In this project.**
-   - The game module depends privately on `UpdateBudgetCore`, and only its `.cpp` files use the plugin.
-   - The plugin depends publicly on `Core`, `CoreUObject` and `Engine`, because its public headers will expose engine types.
+   - The game module depended privately on `UpdateBudgetCore` in Phase 4. Since S1 the dependency is **public**, because the public header `UBDemoBrainComponent.h` derives from the plugin's component (05 A3). `SignificanceManager` is private (S3): only a `.cpp` includes it.
+   - The plugin depends publicly on `Core`, `CoreUObject` and `Engine`, because its public headers expose engine types.
    - `DeveloperSettings` is added in S6, when it is first needed.
 
 ## 3. `TargetRules`: `Type`, `DefaultBuildSettings`, `IncludeOrderVersion`
@@ -113,6 +113,12 @@
 | 22 | `TFunctionRef` and `TConstArrayView` (S4) | `FUpdateBudgetScheduler::Run` |
 | 23 | Automation tests: `IMPLEMENT_SIMPLE_AUTOMATION_TEST`, `EAutomationTestFlags`, `TestEqual`/`TestTrue`, `WITH_DEV_AUTOMATION_TESTS`, `Automation RunTests` (S4) | scheduler tests, `Tools\run_tests.bat` |
 | 24 | Sorting and numeric safety: `TArray::Sort` with a predicate, `FMath::IsFinite`, `TArray::Init` / `SetNumUninitialized` (S4) | scheduler |
+| 25 | A custom `FTickFunction`: USTRUCT + `WithCopy = false`, `RegisterTickFunction` / `UnRegisterTickFunction` / `SetTickFunctionEnable`, `ExecuteTick` (S5) | `FUpdateBudgetTickFunction` |
+| 26 | Console variables: `TAutoConsoleVariable`, `ECVF_Default`, `GetValueOnGameThread`, and setting one before start-up with `-ini:` (S5) | `ub.Enabled` |
+| 27 | `FPlatformTime::Cycles64` / `ToMilliseconds64` / `GetSecondsPerCycle64` (S5) | `RunClient` |
+| 28 | Engine test helpers: `FTestWorldWrapper`, `FTestConsoleVariable` (S5) | lifetime tests |
+| 29 | The component's tick and registration controls: `SetComponentTickEnabled`, `bStartWithTickEnabled`, `OnRegister` / `OnUnregister`, `Activate`, `ReregisterComponent`, `UnregisterAllComponents`, `RouteEndPlay` (S5) | `UBudgetedUpdateComponent`, lifetime tests |
+| 30 | Small utilities in S5: `IsValid`, `TArray::AddDefaulted_GetRef` / `Reset`, `TWeakObjectPtr`, `FCoreUObjectDelegates::GetPostGarbageCollect`, `UCLASS(NotBlueprintable, HideDropdown)` | subsystem, tests |
 
 ## 5. `UActorComponent` lifecycle and `PrimaryComponentTick`
 
@@ -142,7 +148,7 @@
    - Order: `Initialize` → `PostInitialize` → `OnWorldBeginPlay` (before actors' `BeginPlay`) … `Deinitialize` (after actors' `EndPlay`) (`01b` §3).
    - The tickable variant is also an `FTickableGameObject`. Its `Tick` runs **after `TG_PostPhysics`**, and it can't pick a tick group.
 4. **When to use it.** World-wide registries, directors and managers whose lifetime should equal the world.
-5. **When not to.** Cross-level state (use a `UGameInstanceSubsystem`). Work that must run in a specific tick group (use your own `FTickFunction`, as S5 will).
+5. **When not to.** Cross-level state (use a `UGameInstanceSubsystem`). Work that must run in a specific tick group (use your own `FTickFunction`, as S5 does: §25).
 6. **Common mistakes.**
    - Forgetting `DoesSupportWorldType`, so the subsystem also runs in editor worlds.
    - Fetching another plugin's object in `Initialize` before it exists (the Significance Manager trap, `01b #10`).
@@ -418,3 +424,126 @@
 | `FMath::Lerp(A, B, Alpha)` | `A + Alpha * (B - A)` (`Core/Public/Math/UnrealMathUtility.h:1123–1126`) | The moving-average step, by its name | Reaching for `FMath::WeightedMovingAverage` (same file, line 2494): it computes `Cur·W + Prev·(1 − W)` and re-clamps the weight on every call, so its result can differ in the last bit |
 | `TArrayView::GetData()` | A raw pointer to the first element | The sort comparator reads deadlines without the per-access range check | Indexing a raw pointer with an index that isn't guaranteed in range: the check is gone, so out-of-range is undefined behaviour. Here every index is 0..N−1 by construction |
 | `TArray::SetNumUninitialized(N, EAllowShrinking::No)` | Sets the size without constructing or zeroing elements, and keeps the memory when shrinking | The sort buffer is fully rewritten every frame, so zeroing would be wasted work | Reading elements before writing them: they hold garbage |
+
+---
+
+## APIs added in step S5 (tick function, registry, budgeted path)
+
+## 25. A custom `FTickFunction`
+
+1. **What it is.** The engine's unit of per-frame work. Actors and components each own one (`PrimaryActorTick`, `PrimaryComponentTick`); any code can define its own by deriving from `FTickFunction` (`Engine/Classes/Engine/EngineBaseTypes.h:182–562`).
+2. **Why it exists.** The tick task manager orders every tick function of a world by **tick group** (`TG_PrePhysics`, `TG_DuringPhysics`, …), prerequisites and priority, and runs it once per frame. A custom one lets a system run at a chosen point in the frame, which a tickable object can't do: `FTickableGameObject::Tick` always runs after `TG_PostPhysics` (`01b` §2).
+3. **How it works.**
+   - Override `ExecuteTick(float DeltaTime, ELevelTick, ENamedThreads::Type, const FGraphEventRef&)` (`:524`, pure virtual) and `DiagnosticMessage()` (`:532`, pure virtual); `DiagnosticContext(bool)` is optional (`:535`).
+   - `RegisterTickFunction(ULevel*)` (`:341`) adds it to that level's lists; `UnRegisterTickFunction()` (`:349`) removes it; the destructor also unregisters (`TickTaskManager.cpp:2396–2399`).
+   - Registration ignores `bCanEverTick` and `bStartWithTickEnabled` (`TickTaskManager.cpp:2406–2427`); the default state is **enabled** (`:2374`), so it ticks from the next frame.
+   - `SetTickFunctionEnable(bool)` (`EngineBaseTypes.h:364`) moves a registered function between the enabled and disabled sets (`TickTaskManager.cpp:2439–2461`). Each frame the manager walks only the enabled set (`:1479–1485`), so a disabled function costs nothing per frame. On an unregistered function it only stores the state.
+   - A function registered **during** a tick frame runs in the next tick group of the same frame (`EngineBaseTypes.h:334–341`).
+   - The manager runs each function at most once per value of `GFrameCounter` (`TickTaskManager.cpp:1479–1485`, `2622–2631`).
+   - The struct must never be copied: the manager keeps raw pointers to it. `FTickFunction` deletes its copy assignment (`EngineBaseTypes.h:550–551`), and a USTRUCT subclass declares `TStructOpsTypeTraits<…>::WithCopy = false` (`FActorTickFunction`: `:599–608`).
+4. **When to use it.** A world-level system that must run in a specific tick group, once per frame, on the game thread: schedulers, batch managers (Mass and Niagara do this: `MassProcessingPhaseManager.cpp:485–486`, `NiagaraWorldManager.cpp:452–463`).
+5. **When not to.** Per-actor work (use the actor's or component's own tick). Work that may run anywhere after physics (a tickable subsystem is simpler).
+6. **Common mistakes.**
+   - Registering in a subsystem's `Initialize`: it starts ticking at once, even in editor worlds (`01b #2`).
+   - Forgetting to unregister before the owner goes, or copying the struct (dangling pointers in the tick manager).
+   - Setting `bStartWithTickEnabled` and expecting it to matter for a hand-registered function. Only actor and component setup read it (`ActorComponent.cpp:1739–1750`).
+   - Calling the owner's per-frame function from anywhere else as well: the work then runs twice.
+7. **Example.**
+   ```cpp
+   USTRUCT() struct FMyTick : public FTickFunction
+   {
+       GENERATED_BODY()
+       UMySubsystem* Owner = nullptr;
+       virtual void ExecuteTick(float Dt, ELevelTick, ENamedThreads::Type, const FGraphEventRef&) override { Owner->Step(Dt); }
+       virtual FString DiagnosticMessage() override { return TEXT("UMySubsystem::Step"); }
+   };
+   template<> struct TStructOpsTypeTraits<FMyTick> : TStructOpsTypeTraitsBase2<FMyTick> { enum { WithCopy = false }; };
+   // OnWorldBeginPlay:  Tick.Owner = this; Tick.SetTickFunctionEnable(true); Tick.RegisterTickFunction(World.PersistentLevel);
+   // Deinitialize:      Tick.UnRegisterTickFunction();
+   ```
+8. **In this project.** `FUpdateBudgetTickFunction` (05 F1) runs `UUpdateBudgetSubsystem::RunFrame` in `TG_PrePhysics`. It is registered in `OnWorldBeginPlay` in every mode and enabled only in budgeted mode, so in the native baselines it costs nothing.
+
+## 26. Console variables: `TAutoConsoleVariable`, and setting one before start-up
+
+1. **What it is.** A named runtime setting that can be changed from the console, config files and the command line. `TAutoConsoleVariable<T>` registers one when its static object is constructed (`Core/Public/HAL/IConsoleManager.h:1969–2028`).
+2. **Why it exists.** Tuning and switching behaviour without rebuilding, and one place where every source of a value (code default, ini, device profile, console) is ranked by priority.
+3. **How it works.**
+   - `TAutoConsoleVariable<int32> CVar(TEXT("ub.Enabled"), 0, TEXT("help"), ECVF_Default);`
+   - `GetValueOnGameThread()` returns the game thread's copy; there is a separate render-thread copy (`IConsoleManager.h:1911–1928`).
+   - **Ini files:** the `[ConsoleVariables]` section of `Engine.ini` is applied at start-up (`Core/Private/Misc/ConfigCacheIni.cpp:6971`). A variable that doesn't exist yet, for example one a plugin registers later, gets a placeholder (`Core/Private/Misc/ConfigUtilities.cpp:419–425`), and its value is taken over when the real variable registers (`Core/Private/HAL/ConsoleManager.cpp:3328–3345`).
+   - **Command line:** `-ini:Engine:[ConsoleVariables]:ub.Enabled=1` writes into that section before it is applied (`ConfigCacheIni.cpp:1715–1722`, `2317–2405`). This override exists in every build except Shipping (`ConfigCacheIni.h:57`).
+   - `-ExecCmds="…"` is different: the commands are queued as deferred commands (`Engine/Private/UnrealEngine.cpp:2552`) and run during the engine tick (`:2772–2810`), after the first map has begun play.
+   - Cheat variables (`ECVF_Cheat`) refuse values from ini files (`01b #11`).
+4. **When to use it.** Switches and tuning values that a developer or a benchmark script changes at run time.
+5. **When not to.** Designer-facing data that belongs in Project Settings (a `UDeveloperSettings` class, S6). Values read in a hot loop: read the cvar once per frame and keep the value.
+6. **Common mistakes.**
+   - Setting a value with `-ExecCmds` that the code reads at begin play: it arrives a frame too late, and nothing reports it.
+   - Marking a benchmark switch `ECVF_Cheat`, so the ini route silently refuses it.
+   - Reading `GetValueOnGameThread()` from a worker thread (it `ensure`s).
+7. **Example.** `static TAutoConsoleVariable<int32> CVarMyMode(TEXT("my.Mode"), 0, TEXT("0 off, 1 on"), ECVF_Default);` then `const bool bOn = CVarMyMode.GetValueOnGameThread() != 0;` and, to start a run with it on: `MyGame.exe -ini:Engine:[ConsoleVariables]:my.Mode=1`.
+8. **In this project.** `ub.Enabled` (05 F4) selects native or budgeted mode, read once per world in `OnWorldBeginPlay`. The UB benchmark configuration (S6) sets it with `-ini:`; B1 keeps using `-ExecCmds` for `tick.AllowBatchedTicks`, which the tick manager reads every frame, so the one-frame delay doesn't matter there.
+
+## 27. `FPlatformTime::Cycles64` and friends
+
+1. **What it is.** The platform's high-resolution timer. On Windows `Cycles64()` returns the raw `QueryPerformanceCounter` value (`Core/Public/Windows/WindowsPlatformTime.h:39–44`). `GetSecondsPerCycle64()` is its tick length, `ToMilliseconds64(Cycles)` converts a difference (`Core/Public/GenericPlatform/GenericPlatformTime.h:195–205`).
+2. **Why it exists.** Measuring short intervals cheaply and portably, without floating-point drift.
+3. **How it works.** Take two readings and subtract; the difference is an integer number of timer ticks. `FPlatformTime::Seconds()` reads the same counter but converts at once and adds a fixed offset of 16,777,216 s (`WindowsPlatformTime.h:22–29`, `:46–49`), which costs low-order precision in a difference.
+4. **When to use it.** Timing one piece of code at run time, where the result feeds a decision (as here) or a custom statistic.
+5. **When not to.** Profiling: use `TRACE_CPUPROFILER_EVENT_SCOPE`, cycle stats or CSV timing scopes, which the tools understand. Gameplay time: use `UWorld::GetTimeSeconds()` (paused and dilated correctly).
+6. **Common mistakes.**
+   - Assuming nanosecond resolution: the counter's frequency is whatever the OS reports, so the tick length should be checked (this project logs it).
+   - Converting each reading to seconds before subtracting.
+   - Timing something so short that the two readings cost more than the work.
+7. **Example.** `const uint64 Start = FPlatformTime::Cycles64(); DoWork(); const double Ms = FPlatformTime::ToMilliseconds64(FPlatformTime::Cycles64() - Start);`
+8. **In this project.** `RunClient` times each scheduled update (05 F4); the cost feeds the policy's moving average and the budget. The subsystem logs the timer's tick length once per world (09, S5).
+
+## 28. Engine test helpers: `FTestWorldWrapper` and `FTestConsoleVariable`
+
+1. **What they are.** Utilities in the Engine module for tests that need a real world or a temporary cvar value (`Engine/Public/Tests/AutomationCommon.h:30–72` and `:80–104`, exported with `ENGINE_API`, outside any `WITH_AUTOMATION_TESTS` guard).
+2. **Why they exist.** Building a playable world by hand has many steps that are easy to get wrong; Epic's own tick tests use the wrapper (`Plugins/Tests/RuntimeTests/Source/RuntimeTests/Private/EngineRuntimeTests.cpp:159–162`).
+3. **How they work.**
+   - `CreateTestWorld(EWorldType::Game)` creates a game instance, the world (rooted, never ticked by the engine loop) and a world context (`AutomationCommon.cpp:59–115`).
+   - `BeginPlayInTestWorld()` spawns the game mode (`SetGameMode`, `:169`), then `InitializeActorsForPlay` and `UWorld::BeginPlay` (`:185`). With a game mode, `GameMode->StartPlay()` dispatches every actor's `BeginPlay` (`World.cpp:6171–6174`, `GameStateBase.cpp:205–211`, `WorldSettings.cpp:363–379`). Without one, `UWorld::BeginPlay` still runs the subsystems' `OnWorldBeginPlay` (`World.cpp:6165–6169`) but no actor begins play.
+   - `TickTestWorld(DeltaTime)` calls `UWorld::Tick(LEVELTICK_All, …)` and then advances `GFrameCounter` (`:220–235`), because tick functions run once per frame number (§25).
+   - `EndPlayInTestWorld()` routes `EndPlay(Quit)` and restores the frame counter (`:199–218`); `DestroyTestWorld(bool bForceGarbageCollect)` shuts everything down and can run a full GC (`:117–147`); the destructor destroys the world without GC.
+   - Failures are collected, not logged; `ForwardErrorMessages(Test)` turns them into test errors.
+   - `FTestConsoleVariable(Name)`: `Set(Value)` remembers the original value once, and the destructor (or `Restore()`) puts it back (`AutomationCommon.cpp:274–339`). It keeps the variable's current priority.
+4. **When to use them.** Automation tests that must exercise real actor lifetimes, ticking and subsystems.
+5. **When not to.** Pure logic (test it without a world, as the S4 policy tests do). PIE behaviour: the wrapper doesn't support PIE worlds (`AutomationCommon.cpp:84–88`).
+6. **Common mistakes.**
+   - Ticking a hand-made world twice without advancing `GFrameCounter`: the second tick runs no tick functions.
+   - Reading a destroyed object after a world tick: `UWorld::Tick` may collect garbage at its end (`LevelTick.cpp:1968–1971`).
+   - Restoring a cvar before the world that depends on it is gone.
+7. **Example.**
+   ```cpp
+   FTestConsoleVariable Mode(TEXT("my.Mode"));  Mode.Set(TEXT("1"));
+   FTestWorldWrapper Wrapper;
+   Wrapper.CreateTestWorld(EWorldType::Game);  Wrapper.BeginPlayInTestWorld();
+   Wrapper.GetTestWorld()->SpawnActor<AMyActor>();
+   Wrapper.TickTestWorld(1.f / 60.f);
+   Wrapper.ForwardErrorMessages(this);
+   ```
+8. **In this project.** `FTestBudgetWorld` in the lifetime tests (05 F6) wraps both, with the cvar declared first so it is restored last.
+
+## 29. The component's tick and registration controls
+
+| API (5.8.4) | What it does | Why it matters here | Common mistake |
+|---|---|---|---|
+| `UActorComponent::SetComponentTickEnabled(bool)` (`ActorComponent.cpp:1755–1761`) | Enables or disables `PrimaryComponentTick` (if it can ever tick and isn't a template) | Budgeted mode turns the native tick off, so the native modes' dispatch cost isn't paid in UB | Expecting it to survive re-registration: see the next row |
+| `FTickFunction::bStartWithTickEnabled` | Read whenever a component's tick function is registered: `SetTickFunctionEnable(bStartWithTickEnabled \|\| IsTickFunctionEnabled())` (`ActorComponent.cpp:1739–1750`, line 1747) | Budgeted mode clears it, or a re-registered component would tick natively again | Treating it as "initial state only": it is re-applied on every registration |
+| `OnRegister()` / `OnUnregister()` (protected virtuals, `ActorComponent.h:830`, `835`) | Called when the component joins or leaves its world: on spawn, on re-registration, and (unregister) during streaming removal | The client's registry membership follows these, so it stops exactly when the native tick does | Doing play-time work in `OnRegister` without checking `HasBegunPlay()`: it also runs before `BeginPlay`, and in editor worlds |
+| `Activate(bool bReset)` (`ActorComponent.cpp:2815–2824`) / `Deactivate()` (`:2826–2835`) | Turn the component's tick on or off and set its active flag | `Activate()` would bring back a scheduler-driven client's native tick; the `TickComponent` guard handles it. `Deactivate()` isn't mirrored by the scheduler (02 §12 item 8) | Assuming activation is only a flag: it changes ticking |
+| `ReregisterComponent()` (`ActorComponent.cpp:2554–2566`) | Unregisters and registers again (through `FComponentReregisterContext`), without `EndPlay`/`BeginPlay` | Exercised by the `NoDoubleUpdate` test | Expecting `BeginPlay` to run again |
+| `AActor::UnregisterAllComponents(bool bForReregister = false)` (`Actor.h:3250`) | Unregisters every component of the actor | What streaming removal calls first (`Level.cpp:2196`); the `LevelUnloadOrder` test calls it the same way | Assuming the actor has ended play afterwards: it hasn't |
+| `AActor::RouteEndPlay(EEndPlayReason)` (`Actor.h:3381`, `Actor.cpp:3221–3257`) | Calls `EndPlay` once (if begun play), then uninitialises components | The second step of streaming removal, called with `RemovedFromWorld` in the test | Calling `EndPlay` directly, which skips the begun-play check and component uninitialisation |
+
+## 30. Small utilities in S5
+
+| API (5.8.4) | What it is | Why it is used here | Common mistake |
+|---|---|---|---|
+| `IsValid(const UObject*)` (`CoreUObject/Public/UObject/Object.h:1886`) | True if the pointer is non-null and the object isn't flagged as garbage or unreachable | The guard before each scheduled update, and the test for entries to remove after the loop | Testing only `!= nullptr`: a destroyed object stays non-null until GC runs (`01b #8`) |
+| `TArray::AddDefaulted_GetRef()` (`Array.h:3067`) | Appends a default-constructed element and returns a reference to it | Adds a client's hot state and sets its `LastUpdateTime` in one step | Keeping the reference after another `Add`: the array may reallocate |
+| `TArray::Reset(NewSize = 0)` (`Array.h:2469`) | Empties the array but keeps its allocation | `PendingAdds` is reused every frame without reallocating | Using `Empty()` in a per-frame path, which frees and later reallocates |
+| `TWeakObjectPtr<T>` | A pointer that doesn't keep its object alive and reads as null once the object is garbage or gone | The teardown test proves the subsystem was collected, and reads only components still alive | Using it to keep an object alive (it doesn't), or a raw pointer where an object may die between frames |
+| `FCoreUObjectDelegates::GetPostGarbageCollect()` + `AddUObject(this, &Class::Method)` → `FDelegateHandle`; `Remove(Handle)` (`CoreUObject/Public/UObject/UObjectGlobals.h:3490`) | A multicast delegate broadcast after every garbage collection (`GarbageCollection.cpp:5943`). `AddUObject` binds a member function and won't call it once the object is gone | The subsystem removes the entries GC nulled, in every mode (05 F4). `UWorld` and `UNetDriver` bind the same way (`World.cpp:1765`, `NetDriver.cpp:839`) | Forgetting to `Remove` the handle when the owner shuts down, or changing containers that another loop is reading from inside the callback (here: deferred if the scheduler is running) |
+| `UCLASS(NotBlueprintable, HideDropdown)` | No Blueprint subclasses; hidden from class pickers | The test classes ship in the module but never appear in the editor's lists | Leaving test classes visible, so designers can pick them |
