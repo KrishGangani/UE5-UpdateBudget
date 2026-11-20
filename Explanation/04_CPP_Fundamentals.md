@@ -209,3 +209,20 @@ const bool bInside = Along > 0.0 && Along * Along > CosASquared * V.SizeSquared(
 - **Why it works.** For two non-negative numbers, x > y exactly when x² > y². So once `Along > 0` is known (and the right side is never negative), squaring both sides keeps the answer and removes the square root of `|V|`.
 - **Why it matters.** It runs for every client every frame. Distances are compared the same way: `DistanceSquared <= Square(NearDistance)`.
 - **In our code (S6):** `FUpdateBudgetView::IsInView` and `FUpdateBudgetCategory::GetSignificance` (05 G1); the brain's cone test (B4) uses the same idea.
+
+## 23. Calling the base version on purpose: `Super::` inside your own override
+
+```cpp
+void UMyComponent::SetComponentTickEnabled(bool bEnabled)     // override: what everyone else calls
+{
+    bWanted = bEnabled;                                        // remember the caller's choice
+    if (!bOverridden) Super::SetComponentTickEnabled(bEnabled);
+}
+void UMyComponent::TakeOver()
+{
+    Super::SetComponentTickEnabled(false);                     // not this->: that would record "off" as the caller's choice
+}
+```
+- **What it does.** A qualified call (`Super::F`, which is `BaseClass::F`) calls that exact version, **without** virtual dispatch. An unqualified call inside the class goes through the vtable and lands back in your own override.
+- **When it matters.** When the override adds bookkeeping that must apply to outside callers but not to the class's own internal changes.
+- **In our code (S7):** `UBudgetedUpdateComponent` records gameplay's tick choice in its `SetComponentTickEnabled` override. Its own mode changes (`SetDrivenByScheduler`, the `TickComponent` guard) call `Super::SetComponentTickEnabled`, so they are never mistaken for gameplay's choice (05 H3).

@@ -110,3 +110,14 @@
 | Reading this frame's camera during `TG_PrePhysics` | Significance lags a camera cut by one frame | Know that cameras update after all tick groups (`LevelTick.cpp:1828–1847`); the brains see the same one-frame-old view, so the comparison stays fair |
 | Treating the budget as a cap | `UpdateMs` sits at the budget on every frame even when few updates were due | The design is work-conserving: after the mandatory clients it keeps running clients in deadline order while the budget lasts (02 §2). A smaller budget is the way to spend less (02 §12) |
 | ⚠ caught by the compiler: **an integer that converts equally well to two overloads** (`AddOnScreenDebugMessage` takes a `uint64` or an `int32` key; `GetUniqueID()` is `uint32`) | Error C2668, ambiguous call to an overloaded function | Cast to the exact parameter type (`static_cast<uint64>`) |
+
+## Live switching (S7) and the scheduler tests from UE5-TestTrust: mistakes caught by review, by testing and by mutation testing
+
+| Mistake | How to spot it | How to prevent it |
+|---|---|---|
+| ⚠ caught (review): **switching tick functions inside the change callback** | A cvar set from inside an update enables native ticks mid-frame; clients the scheduler already ran update again in a later tick group | Mark the switch pending; apply it after the tick manager's `EndFrame` (`OnWorldPostActorTick`), and test the in-update case (`LiveSwitch`) |
+| ⚠ caught (review, then the altitude review): **a mode switch that overwrites gameplay's choices** | A component gameplay had paused updates natively again after a switch there and back | Record gameplay's choice where every path goes through (`SetComponentTickEnabled`); have the component's own mode logic call `Super::` |
+| ⚠ caught (review): **a capture labelled with the mode it began in** | A capture that spans a switch is filed as native or budgeted | Mark it `Mixed` at the switch, and mark the frame with a CSV event |
+| ⚠ caught (simplify): **counters copied field by field into a report** | A new statistic needs four edits; a reset that misses one field (it happened: the budget value) | Make the report the accumulator and reset it with one assignment |
+| ⚠ found by UE5-TestTrust (mutation testing): **boundaries no test sits on** | A comparison can flip between `<` and `<=` (or `>` and `>=`) and every test still passes: 3 of 39 mutants of the scheduler survived for that reason | For every comparison that encodes a rule, add one test **exactly on the boundary**, with inputs that are exact in binary (0.25, 0.5) so rounding can't move it |
+| ⚠ found while checking a commit: **a backslash sequence turned into a control character by a scripted edit** (`Tools\run_tests.bat` became `Tools` + carriage return + `un_tests.bat`) | Git treats the file as binary (`git ls-files --eol` shows `-text`); GitHub shows no diff | Scan for lone carriage returns before every commit; write paths with forward slashes or escape the backslash in the script |

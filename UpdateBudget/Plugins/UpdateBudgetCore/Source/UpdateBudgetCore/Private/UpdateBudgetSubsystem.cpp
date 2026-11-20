@@ -3,6 +3,7 @@
 #include "UpdateBudgetSubsystem.h"
 
 #include "Camera/PlayerCameraManager.h"
+#include "DrawDebugHelpers.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
@@ -29,7 +30,7 @@ DECLARE_CYCLE_STAT(TEXT("Deadlines"), STAT_UpdateBudget_Deadlines, STATGROUP_Upd
 static TAutoConsoleVariable<int32> CVarUpdateBudgetEnabled(
 	TEXT("ub.Enabled"),
 	0,
-	TEXT("UpdateBudget mode, read when a world begins play. 0: native ticks (baselines). 1: budgeted (the scheduler runs the updates)."),
+	TEXT("UpdateBudget mode. 0: native ticks (baselines). 1: budgeted (the scheduler runs the updates). Read when a world begins play; a change switches running worlds at the end of the next frame that ticks actors (not while paused)."),
 	ECVF_Default);
 
 static TAutoConsoleVariable<float> CVarUpdateBudgetMs(
@@ -41,7 +42,7 @@ static TAutoConsoleVariable<float> CVarUpdateBudgetMs(
 static TAutoConsoleVariable<int32> CVarUpdateBudgetDebug(
 	TEXT("ub.Debug"),
 	0,
-	TEXT("UpdateBudget debug view. 0: off. 1: one on-screen line per world with this frame's stats."),
+	TEXT("UpdateBudget debug view. 0: off. 1: one on-screen line per world with this frame's stats. 2: also a point above every client, green when just updated, red at the longest allowed staleness."),
 	ECVF_Default);
 
 bool UUpdateBudgetSubsystem::DoesSupportWorldType(const EWorldType::Type WorldType) const
@@ -65,7 +66,7 @@ void UUpdateBudgetSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	SettingsBudgetMs = Settings->BudgetMs;
 	Scheduler = FUpdateBudgetScheduler(Categories.Num());   // one cost prediction per category
 
-	float LongestMaxStaleness = 0.f;
+	LongestMaxStaleness = 0.f;
 	for (const FUpdateBudgetCategory& Category : Categories)
 	{
 		LongestMaxStaleness = FMath::Max(LongestMaxStaleness, FMath::Max(Category.NearMaxStaleness, Category.FarMaxStaleness));
@@ -74,33 +75,80 @@ void UUpdateBudgetSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 			*Category.Name.ToString(), Category.NearDistance, Category.FarDistance, Category.NearMaxStaleness, Category.FarMaxStaleness);
 	}
 
-	// Normally nobody has registered yet (OnWorldBeginPlay runs before any actor's BeginPlay, 01b #7);
-	// if someone has, the mode must reach them too, or they would update natively and from the scheduler.
-	for (UBudgetedUpdateComponent* Client : Clients)
-	{
-		if (Client)
-		{
-			ApplyMode(*Client);
-		}
-	}
-
-	// Registered in every mode, so a later switch only has to enable it; a disabled tick function costs nothing per
-	// frame (the tick manager walks only its enabled set). The enable state is set before registering, as Niagara does.
+	// Normally nobody has registered yet (OnWorldBeginPlay runs before any actor's BeginPlay, 01b #7); if someone has,
+	// the mode must reach them too. This also sets the tick function's enable state before it is registered, as Niagara
+	// does. Registered in every mode, so a later switch only has to enable it; a disabled tick function costs nothing
+	// per frame (the tick manager walks only its enabled set).
+	ApplyModeToClients();
 	TickFunction.Subsystem = this;
-	TickFunction.SetTickFunctionEnable(bBudgeted);
 	TickFunction.RegisterTickFunction(InWorld.PersistentLevel);
 
 	// GC nulls the entry of a component collected without EndPlay. Removing such entries right after each collection
 	// keeps the registry exact in every mode; otherwise only the scheduler's loop would ever find them.
 	PostGarbageCollectHandle = FCoreUObjectDelegates::GetPostGarbageCollect().AddUObject(this, &UUpdateBudgetSubsystem::HandlePostGarbageCollect);
 
-	const TCHAR* ModeName = bBudgeted ? TEXT("Budgeted") : TEXT("Native");
+	// Live switching (S7): every world's subsystem listens to the cvar itself.
+	EnabledChangedHandle = CVarUpdateBudgetEnabled->OnChangedDelegate().AddUObject(this, &UUpdateBudgetSubsystem::HandleEnabledChanged);
+
 	UE_LOG(LogUpdateBudget, Display, TEXT("%s mode (ub.Enabled %d). Budget %.2f ms (settings %.2f, ub.BudgetMs %.2f), %d categories. Update timer resolution: %.1f ns."),
-		ModeName, CVarUpdateBudgetEnabled.GetValueOnGameThread(), ResolveBudgetMs(), SettingsBudgetMs,
+		GetModeName(bBudgeted), CVarUpdateBudgetEnabled.GetValueOnGameThread(), ResolveBudgetMs(), SettingsBudgetMs,
 		CVarUpdateBudgetMs.GetValueOnGameThread(), Categories.Num(), FPlatformTime::GetSecondsPerCycle64() * 1.0e9);
-	CSV_METADATA(TEXT("UBMode"), ModeName);
+	CSV_METADATA(TEXT("UBMode"), GetModeName(bBudgeted));
 	// The staleness bound of this run's settings, so an analysis never has to assume one (SC2).
 	CSV_METADATA(TEXT("UBMaxStaleness"), *FString::SanitizeFloat(LongestMaxStaleness));
+}
+
+void UUpdateBudgetSubsystem::HandleEnabledChanged(IConsoleVariable* Variable)
+{
+	// Not now: the change may come from inside an update, and switching mid-loop could run a client both natively and
+	// from the scheduler in one frame. Bound only while a switch is pending, so the steady state costs nothing.
+	if (!PostActorTickHandle.IsValid())
+	{
+		PostActorTickHandle = FWorldDelegates::OnWorldPostActorTick.AddUObject(this, &UUpdateBudgetSubsystem::HandlePostActorTick);
+	}
+}
+
+void UUpdateBudgetSubsystem::HandlePostActorTick(UWorld* World, ELevelTick TickType, float DeltaSeconds)
+{
+	// The tick manager's frame is over (LevelTick.cpp:1886 before 1906): a tick function enabled now first runs next
+	// frame, and no tick group of this frame can pick it up again.
+	if (World != GetWorld())
+	{
+		return;
+	}
+	FWorldDelegates::OnWorldPostActorTick.Remove(PostActorTickHandle);
+	PostActorTickHandle.Reset();
+
+	const bool bWanted = CVarUpdateBudgetEnabled.GetValueOnGameThread() != 0;
+	if (bWanted != bBudgeted)
+	{
+		SetBudgeted(bWanted);
+	}
+}
+
+void UUpdateBudgetSubsystem::ApplyModeToClients()
+{
+	for (UBudgetedUpdateComponent* Client : Clients)
+	{
+		if (Client)
+		{
+			Client->SetDrivenByScheduler(bBudgeted);
+		}
+	}
+	TickFunction.SetTickFunctionEnable(bBudgeted);
+}
+
+void UUpdateBudgetSubsystem::SetBudgeted(bool bInBudgeted)
+{
+	bBudgeted = bInBudgeted;
+	ApplyModeToClients();
+
+	// Every client was updated this frame by the old mode, and is updated from the next frame by the new one. The hot
+	// state already holds every client's last update time (RecordUpdate runs in both modes), so the deadlines are right.
+	CSV_EVENT(UpdateBudget, TEXT("ModeSwitch %s"), GetModeName(bBudgeted));
+	CSV_METADATA(TEXT("UBMode"), TEXT("Mixed"));   // a capture that spans a switch is neither mode: analysis must split it
+	UE_LOG(LogUpdateBudget, Display, TEXT("Switched to %s mode at %.3f s, %d clients."),
+		GetModeName(bBudgeted), GetWorld()->GetTimeSeconds(), Clients.Num());
 }
 
 void UUpdateBudgetSubsystem::Register(UBudgetedUpdateComponent* Client)
@@ -115,7 +163,8 @@ void UUpdateBudgetSubsystem::Register(UBudgetedUpdateComponent* Client)
 
 	// Applied at once, even when the add itself is deferred: a component spawned during the loop has just had its
 	// native tick registered (Actor.cpp:4824), and it must not tick natively in a later group of this frame.
-	ApplyMode(*Client);
+	// Applied in both modes: a client that was scheduler-driven elsewhere gets its native tick back here.
+	Client->SetDrivenByScheduler(bBudgeted);
 
 	if (bRunningScheduler)
 	{
@@ -148,16 +197,6 @@ void UUpdateBudgetSubsystem::Unregister(UBudgetedUpdateComponent* Client)
 		}
 	}
 	DetachClient(Client);
-}
-
-void UUpdateBudgetSubsystem::ApplyMode(UBudgetedUpdateComponent& Client) const
-{
-	// Compared, not only set in budgeted mode: a client that was scheduler-driven elsewhere gets its native tick back,
-	// and a native client's tick state, which gameplay may have changed, is left alone.
-	if (Client.IsDrivenByScheduler() != bBudgeted)
-	{
-		Client.SetDrivenByScheduler(bBudgeted);
-	}
 }
 
 void UUpdateBudgetSubsystem::AddClient(UBudgetedUpdateComponent* Client)
@@ -227,14 +266,14 @@ void UUpdateBudgetSubsystem::CountNearClients(double Now)
 {
 	// From the outcome, after the loop and after invalid entries are gone: a near client is missed if it wasn't updated
 	// at this frame's time. One dense pass over States (SC3).
-	FrameNearClients = 0;
-	FrameNearMissed = 0;
+	Frame.NearClients = 0;
+	Frame.NearMissed = 0;
 	for (const FBudgetClientState& State : States)
 	{
 		if (State.Significance >= 1.f)
 		{
-			++FrameNearClients;
-			FrameNearMissed += (State.LastUpdateTime < Now) ? 1 : 0;
+			++Frame.NearClients;
+			Frame.NearMissed += (State.LastUpdateTime < Now) ? 1 : 0;
 		}
 	}
 }
@@ -277,11 +316,11 @@ void UUpdateBudgetSubsystem::RunFrame(float DeltaSeconds)
 	const double Now = GetWorld()->GetTimeSeconds();
 	UpdateDeadlines();
 
-	FrameBudgetMs = ResolveBudgetMs();
+	Frame.BudgetMs = ResolveBudgetMs();
 
 	// The last frame's delta estimates when the next frame starts (02 section 6); with a fixed step it is exact.
 	bRunningScheduler = true;
-	FrameStats = Scheduler.Run(States, Now + DeltaSeconds, FrameBudgetMs, [this](int32 Index) { return RunClient(Index); });
+	Frame.Scheduler = Scheduler.Run(States, Now + DeltaSeconds, Frame.BudgetMs, [this](int32 Index) { return RunClient(Index); });
 	bRunningScheduler = false;
 
 	// Changes made by the updates themselves, applied now that nothing reads the arrays.
@@ -323,6 +362,8 @@ void UUpdateBudgetSubsystem::Deinitialize()
 {
 	TickFunction.UnRegisterTickFunction();
 	FCoreUObjectDelegates::GetPostGarbageCollect().Remove(PostGarbageCollectHandle);
+	CVarUpdateBudgetEnabled->OnChangedDelegate().Remove(EnabledChangedHandle);
+	FWorldDelegates::OnWorldPostActorTick.Remove(PostActorTickHandle);
 
 	// Normally every client has already unregistered in EndPlay (01b #7). This covers any that haven't.
 	for (const TArray<TObjectPtr<UBudgetedUpdateComponent>>* Registry : { &Clients, &PendingAdds })
@@ -345,32 +386,37 @@ void UUpdateBudgetSubsystem::Tick(float DeltaTime)
 
 	// One value per frame per stat. The CSV profiler's own startup benchmark puts CSV_CUSTOM_STAT at about 50 ns,
 	// which is why updates are counted in plain fields and published once per frame, not once per update.
-	CSV_CUSTOM_STAT(UpdateBudget, Clients, Clients.Num(), ECsvCustomStatOp::Set);
-	CSV_CUSTOM_STAT(UpdateBudget, UpdatesRun, FrameUpdates, ECsvCustomStatOp::Set);
-	CSV_CUSTOM_STAT(UpdateBudget, MaxGapMs, FrameMaxGapSeconds * 1000.0, ECsvCustomStatOp::Set);
+	Frame.bBudgeted = bBudgeted;
+	Frame.Clients = Clients.Num();
+
+	CSV_CUSTOM_STAT(UpdateBudget, Clients, Frame.Clients, ECsvCustomStatOp::Set);
+	CSV_CUSTOM_STAT(UpdateBudget, UpdatesRun, Frame.Updates, ECsvCustomStatOp::Set);
+	CSV_CUSTOM_STAT(UpdateBudget, MaxGapMs, Frame.MaxGapSeconds * 1000.0, ECsvCustomStatOp::Set);
 	if (bBudgeted)
 	{
 		// The scheduler's own numbers exist only in budgeted mode; native captures don't get columns of zeros.
-		CSV_CUSTOM_STAT(UpdateBudget, UpdateMs, FrameStats.SpentMs, ECsvCustomStatOp::Set);
-		CSV_CUSTOM_STAT(UpdateBudget, BudgetMs, FrameBudgetMs, ECsvCustomStatOp::Set);
-		CSV_CUSTOM_STAT(UpdateBudget, MandatoryRuns, FrameStats.MandatoryRuns, ECsvCustomStatOp::Set);
-		CSV_CUSTOM_STAT(UpdateBudget, MandatoryMs, FrameStats.MandatoryMs, ECsvCustomStatOp::Set);
-		CSV_CUSTOM_STAT(UpdateBudget, Deferred, FrameStats.Deferred, ECsvCustomStatOp::Set);
-		CSV_CUSTOM_STAT(UpdateBudget, OverBudget, FrameStats.bOverBudget ? 1 : 0, ECsvCustomStatOp::Set);
-		CSV_CUSTOM_STAT(UpdateBudget, NearClients, FrameNearClients, ECsvCustomStatOp::Set);
-		CSV_CUSTOM_STAT(UpdateBudget, NearMissed, FrameNearMissed, ECsvCustomStatOp::Set);
+		CSV_CUSTOM_STAT(UpdateBudget, UpdateMs, Frame.Scheduler.SpentMs, ECsvCustomStatOp::Set);
+		CSV_CUSTOM_STAT(UpdateBudget, BudgetMs, Frame.BudgetMs, ECsvCustomStatOp::Set);
+		CSV_CUSTOM_STAT(UpdateBudget, MandatoryRuns, Frame.Scheduler.MandatoryRuns, ECsvCustomStatOp::Set);
+		CSV_CUSTOM_STAT(UpdateBudget, MandatoryMs, Frame.Scheduler.MandatoryMs, ECsvCustomStatOp::Set);
+		CSV_CUSTOM_STAT(UpdateBudget, Deferred, Frame.Scheduler.Deferred, ECsvCustomStatOp::Set);
+		CSV_CUSTOM_STAT(UpdateBudget, OverBudget, Frame.Scheduler.bOverBudget ? 1 : 0, ECsvCustomStatOp::Set);
+		CSV_CUSTOM_STAT(UpdateBudget, NearClients, Frame.NearClients, ECsvCustomStatOp::Set);
+		CSV_CUSTOM_STAT(UpdateBudget, NearMissed, Frame.NearMissed, ECsvCustomStatOp::Set);
 	}
 
-	if (CVarUpdateBudgetDebug.GetValueOnGameThread() > 0)
+	OnFrameStats.Broadcast(Frame);
+	const int32 DebugLevel = CVarUpdateBudgetDebug.GetValueOnGameThread();
+	if (DebugLevel > 0)
 	{
 		ShowDebugStats();
 	}
+	if (DebugLevel > 1)
+	{
+		DrawClientRecency();
+	}
 
-	FrameUpdates = 0;
-	FrameMaxGapSeconds = 0.0;
-	FrameStats = FBudgetFrameStats();
-	FrameNearClients = 0;
-	FrameNearMissed = 0;
+	Frame = FUpdateBudgetFrameReport();
 }
 
 void UUpdateBudgetSubsystem::ShowDebugStats() const
@@ -379,14 +425,38 @@ void UUpdateBudgetSubsystem::ShowDebugStats() const
 	{
 		return;
 	}
-	const FString Line = bBudgeted
-		? FString::Printf(TEXT("UpdateBudget: budgeted | %d clients | %d updates (%d mandatory, %d deferred) | %.2f of %.2f ms%s | max gap %.0f ms"),
-			Clients.Num(), FrameUpdates, FrameStats.MandatoryRuns, FrameStats.Deferred, FrameStats.SpentMs, FrameBudgetMs,
-			FrameStats.bOverBudget ? TEXT(" OVER") : TEXT(""), FrameMaxGapSeconds * 1000.0)
+	const FString Line = Frame.bBudgeted
+		? FString::Printf(TEXT("UpdateBudget: budgeted | %d clients | %d updates (%d mandatory, %d deferred) | %.2f of %.2f ms%s | max gap %.0f ms | near %d, missed %d"),
+			Frame.Clients, Frame.Updates, Frame.Scheduler.MandatoryRuns, Frame.Scheduler.Deferred, Frame.Scheduler.SpentMs, Frame.BudgetMs,
+			Frame.Scheduler.bOverBudget ? TEXT(" OVER") : TEXT(""), Frame.MaxGapSeconds * 1000.0, Frame.NearClients, Frame.NearMissed)
 		: FString::Printf(TEXT("UpdateBudget: native | %d clients | %d updates | max gap %.0f ms"),
-			Clients.Num(), FrameUpdates, FrameMaxGapSeconds * 1000.0);
+			Frame.Clients, Frame.Updates, Frame.MaxGapSeconds * 1000.0);
 	// Keyed per subsystem, so the line is replaced every frame; a time of 0 shows it for one frame.
-	GEngine->AddOnScreenDebugMessage(static_cast<uint64>(GetUniqueID()), 0.f, FrameStats.bOverBudget ? FColor::Orange : FColor::Green, Line);
+	GEngine->AddOnScreenDebugMessage(static_cast<uint64>(GetUniqueID()), 0.f, Frame.Scheduler.bOverBudget ? FColor::Orange : FColor::Green, Line);
+}
+
+void UUpdateBudgetSubsystem::DrawClientRecency() const
+{
+#if ENABLE_DRAW_DEBUG
+	// Age against the longest staleness any category allows, the same scale in both modes: green = updated this frame,
+	// red = as stale as the settings allow. One point per client, drawn for one frame.
+	const UWorld* World = GetWorld();
+	const double Now = World->GetTimeSeconds();
+	const double Scale = FMath::Max(static_cast<double>(LongestMaxStaleness), 1.0e-3);
+	for (int32 Index = 0; Index < Clients.Num(); ++Index)
+	{
+		const UBudgetedUpdateComponent* Client = Clients[Index];
+		const AActor* Owner = Client ? Client->GetOwner() : nullptr;
+		const double LastUpdate = States[Index].LastUpdateTime;
+		if (!Owner || LastUpdate < 0.0)
+		{
+			continue;
+		}
+		// The engine's own green-yellow-red scale (Color.cpp:569-577), which clamps its input.
+		const FColor Color = FColor::MakeRedToGreenColorFromScalar(1.f - static_cast<float>((Now - LastUpdate) / Scale));
+		DrawDebugPoint(World, Owner->GetActorLocation() + FVector(0.0, 0.0, 60.0), 8.f, Color);
+	}
+#endif
 }
 
 TStatId UUpdateBudgetSubsystem::GetStatId() const

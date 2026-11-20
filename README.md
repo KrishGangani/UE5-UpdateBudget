@@ -8,7 +8,7 @@
 
 | Phase | 1 Problem | 2 Research | 3 Architecture | 4 Foundation | 5 Implementation | 6 Explanation | 7 Testing | 8 Profiling | 9 Review | 10 Portfolio |
 |---|---|---|---|---|---|---|---|---|---|---|
-| State | ✓ | ✓ | ✓ final | ✓ | in progress (S6 of 8) | ongoing | — | — | — | — |
+| State | ✓ | ✓ | ✓ final | ✓ | in progress (S7 of 8) | ongoing | — | — | — | — |
 
 ---
 
@@ -51,7 +51,7 @@ The UE project is in [UpdateBudget/](UpdateBudget/) (UE 5.8.4, C++):
 | [01b_Research_Findings](Explanation/01b_Research_Findings.md) | Phase 2: verified engine behaviour (UE 5.8.4) and what it changed in the design |
 | [02_System_Architecture](Explanation/02_System_Architecture.md) | Final v1.0: modules, classes, deadline + EDF scheduling, data flow, safety rules, rejected alternatives |
 | [03_Implementation_Roadmap](Explanation/03_Implementation_Roadmap.md) | The small, ordered build steps; baselines captured before scheduler code |
-| [04](Explanation/04_CPP_Fundamentals.md) · [05](Explanation/05_Line_By_Line_Code_Explanation.md) · [06](Explanation/06_Unreal_APIs_And_Macros.md) · [07](Explanation/07_Common_Mistakes.md) | C++ fundamentals, line-by-line code, APIs and macros, common mistakes. Written step by step with the code (current to S6) |
+| [04](Explanation/04_CPP_Fundamentals.md) · [05](Explanation/05_Line_By_Line_Code_Explanation.md) · [06](Explanation/06_Unreal_APIs_And_Macros.md) · [07](Explanation/07_Common_Mistakes.md) | C++ fundamentals, line-by-line code, APIs and macros, common mistakes. Written step by step with the code (current to S7) |
 | [09](Explanation/09_Testing_And_Benchmarks.md) | Every check and benchmark batch so far, with its raw-data batch name |
 | [08](Explanation/08_Debugging_And_Profiling.md) · [10](Explanation/10_Interview_Questions.md) · [11](Explanation/11_Optimization_Decisions.md) · [12](Explanation/12_Future_Scalability.md) | Debugging and profiling (the tools that exist since S6), interview questions, optimisation decisions (candidates so far), future scalability. Completed in Phases 8–10 |
 | [Research/](Explanation/Research/) | The portfolio-wide research this project draws on: job market, technical challenges, existing solutions, local engine verification |

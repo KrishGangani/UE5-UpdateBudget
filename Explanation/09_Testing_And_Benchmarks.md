@@ -294,7 +294,7 @@ The driver's own re-tuning grows roughly linearly with N, at about 0.1 µs per a
 |---|---|---|
 | S6-a | **First build** | ❌ C2668 in `UpdateBudgetSubsystem.cpp`: `AddOnScreenDebugMessage` called with a `uint32` key is ambiguous between its `uint64` and `int32` overloads (07). Fixed with a `static_cast<uint64>` |
 | S6-b | **Build** (inside the package job: `UpdateBudgetEditor` and `UpdateBudget`, Win64 Development) | ✅ `Result: Succeeded`, **0 errors, 0 warnings** in both targets (19 actions); cook `Success - 0 error(s), 0 warning(s)`; `BUILD SUCCESSFUL` |
-| S6-c | **All automation tests** (`Toolsun_tests.bat UpdateBudget`, after the package, same source; the editor target was already up to date) | ✅ **19 / 19 passed**, `TEST COMPLETE. EXIT CODE: 0`, 0 errors and 0 warnings in the log: lifetime (6), scheduler (8, three now also assert `MandatoryMs`), significance (5: `Bands`, `OutOfView`, `MaxStaleness`, `FarNotBeyondNear`, `ViewCone`). The lifetime worlds have no player camera, so every client keeps significance 1 there and S5's once-per-frame expectations still hold |
+| S6-c | **All automation tests** (`Tools\run_tests.bat UpdateBudget`, after the package, same source; the editor target was already up to date) | ✅ **19 / 19 passed**, `TEST COMPLETE. EXIT CODE: 0`, 0 errors and 0 warnings in the log: lifetime (6), scheduler (8, three now also assert `MandatoryMs`), significance (5: `Bands`, `OutOfView`, `MaxStaleness`, `FarNotBeyondNear`, `ViewCone`). The lifetime worlds have no player camera, so every client keeps significance 1 there and S5's once-per-frame expectations still hold |
 | S6-d | **The first UB run** (batch `2026-11-21_034349_s6first`: UB, N = 2,000, 1 run + priming, warm-up 10 s, capture 60 s, budget 2.0 ms from the settings, pinned `0xFFFF`) | ✅ exit 0, **0 log errors, 0 log warnings**, 3,600 captured frames, 5 PSO events and 1 GC event. The log proves the mode: `Set CVar [[ub.Enabled:1]]`, then `Budgeted mode (ub.Enabled 1). Budget 2.00 ms (settings 2.00, ub.BudgetMs -1.00), 1 categories. Update timer resolution: 100.0 ns.` The capture carries `ubmode = Budgeted`, `ubmaxstaleness = 0.5` |
 | S6-e | **SC1, budget adherence** (`Tools/analyse_ub.py`, `Benchmarks/Summaries/2026-11-21_034349_s6first_ub_check.md`) | ✅ **PASS on this run.** `UpdateMs` median 1.998 / p95 **2.000** / p99 2.012 / max 2.218 ms against a 2.2 ms threshold (1.10 × budget). 163 of 3,600 frames (4.5%) ended over budget, **none forced** (`MandatoryMs` never above the budget: median 0.079, max 0.871 ms). All 163 were soft: the last update came out slightly dearer than predicted |
 | S6-f | **SC2, no starvation** | ✅ **PASS on this run.** The largest per-frame gap was **233.3 ms** against a bound of 516.7 ms (0.5 s + one frame); 0 frames over the bound. At the end of the run the oldest agent was 150 ms old, and none was never updated |
@@ -335,6 +335,49 @@ The driver's own re-tuning grows roughly linearly with N, at about 0.1 µs per a
   - **Moving `series`/`table` helpers into `csv_stats`**: touches `analyse_baselines.py`, outside this step.
   - **Deleting `AlwaysInViewRadius`** (the altitude review: it never fires in the benchmark): the code review showed why a general plugin needs it.
 - The first S6 build failed on an ambiguous overload (`AddOnScreenDebugMessage` with a `uint32` key, 07). It was fixed with an explicit cast before any later build.
+
+---
+
+## Step S7 · Live switching and the debug view (2026-11-21)
+
+| # | Check | Result |
+|---|---|---|
+| S7-a | **Build** (`Tools\build.bat`, Development editor) | ✅ **0 errors, 0 warnings** (MSVC 14.44.35229; 14 actions, 10.1 s). Every changed source was older than the job start, so the build compiled the final code, after the code-review and simplify fixes |
+| S7-b | **All automation tests** (`Tools\run_tests.bat UpdateBudget`, headless, through the job queue) | ✅ **24 / 24 passed**, `TEST COMPLETE. EXIT CODE: 0`, 0 errors and 0 warnings in the log: lifetime (8: the six of S5 with `NoDoubleUpdate` updated, plus `LiveSwitch` and `LiveSwitchKeepsTickState`), scheduler (11: the eight of S4 plus UE5-TestTrust's three), significance (5). Queue job `20261121_035419_46375d`, 25.5 s |
+| S7-c | **Switching mid-run: no double update, no missed agent** (03 S7's check) | ✅ In a real game world (`Lifetime.LiveSwitch`): budgeted → native → budgeted over 9 frames, with the first switch requested from **inside** a client's update while the scheduler runs. Every client got exactly 9 updates (one per frame), none after it left play. A change undone within one frame switched nothing. `Lifetime.LiveSwitchKeepsTickState`: gameplay's tick choices, including those made while budgeted, are in force after the switch back |
+
+**Mutation testing by UE5-TestTrust found 3 gaps in the scheduler tests, closed by 3 new tests.**
+- **What happened.** UE5-TestTrust (P03 of this portfolio, a mutation-testing tool for UE automation tests) ran a campaign on this repository's `UpdateBudgetScheduler.cpp` at `b890bc6`: 39 mutants against the 8 S4 tests (campaign `2026-11-21_025734_mut-updatebudget`).
+- **Before.** Its mutation score M1 was **92.1%** (35 of 38 killed, after its review; 89.7% before the review), with a median of 14.1 s per mutant.
+- **What survived.** All four survivors were boundary shifts of a comparison:
+  - `Deadline < NextFrameTime` → `<=`;
+  - the cut-off `SpentMs + Predicted > BudgetMs` → `>=`;
+  - `bOverBudget = SpentMs > BudgetMs` → `>=`;
+  - the sort's tie-break `A < B` → `A <= B`.
+
+  The last one was reviewed as equivalent: indices are unique, and the engine's introsort never compares an element with itself.
+- **After.** UE5-TestTrust wrote one boundary test for each real gap (its commit `6b60e8b`). With them, its "after" campaign (`2026-11-21_031329_mut-updatebudget`) scored **M1 = 100.0%** (38 of 38), and the only survivor left is the equivalent tie-break.
+- **Merged after review.** Each test checks a documented rule of the policy (05 E2, E3), not an implementation accident, so all three were merged here. Their inputs are binary fractions, so each boundary is hit exactly. The patch applied cleanly to this step's test file. The numbers above are UE5-TestTrust's; they come from its repository and were not re-measured here.
+
+**Audit trail for S7:**
+- `code-review` (medium): 2 important findings and 3 minor ones, all fixed or documented.
+  - **A switch there and back un-paused what gameplay had paused.** The component now records gameplay's tick choice, see the altitude change below.
+  - **A capture spanning a switch kept the mode it began with.** It is now marked `Mixed`, and the switch frame gets a CSV event.
+  - A switch doesn't happen while paused: now stated in the cvar help.
+  - The test cvar is process-wide, so running the lifetime tests switches an open PIE session too: documented here.
+  - The test lacked the in-update case and a same-frame undo: both added.
+- `simplify` (4 parallel reviews). Applied:
+  - the frame report is now the accumulator, reset in one assignment (it fixes a missed reset of the budget value);
+  - one `ApplyModeToClients` for begin play and switches;
+  - the duplicate mode check is gone (the component's own early return);
+  - one mode-name helper;
+  - the engine's `FColor::MakeRedToGreenColorFromScalar` for the debug colours;
+  - a test helper for the per-client mode check.
+- **Altitude change:** the component overrides the virtual `SetComponentTickEnabled`, so gameplay's choices are recorded on every path (`Activate`, `Deactivate`, replication, Blueprint calls), even while budgeted. The `TickComponent` guard remains, for code that enables the tick function directly; `NoDoubleUpdate` now tests that path.
+- Skipped, with reasons:
+  - **A colour lookup table and direct line-batcher calls for `ub.Debug 2`** (an estimated 0.2–0.3 ms per frame at N = 4,000): debug-only.
+  - **Applying a pending switch while paused**, from another hook: a paused world runs no updates, so nothing is lost by waiting.
+- **Found while checking the S6 commit:** a scripted doc edit had turned `\r` in `Tools\run_tests.bat` into a carriage return, so git treated 09 as binary. Fixed in this commit; a scan for lone carriage returns is now part of the pre-commit audit (07).
 
 ---
 

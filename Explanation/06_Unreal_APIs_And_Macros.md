@@ -123,6 +123,8 @@
 | 32 | Stats and timing scopes: `DECLARE_STATS_GROUP`, `DECLARE_CYCLE_STAT`, `SCOPE_CYCLE_COUNTER`, `CSV_SCOPED_TIMING_STAT` (S6) | `RunFrame`, `UpdateDeadlines` |
 | 33 | The camera's view: `GetCameraCacheView`, `FMinimalViewInfo` (`FOV`, `AspectRatio`) (S6) | significance |
 | 34 | Small utilities in S6: `AddOnScreenDebugMessage`, `UE_CLOG`, `FString::SanitizeFloat`, `FMath::Lerp` / `GetRangePct` / `Tan`, `GetDefault` | subsystem, significance |
+| 35 | Reacting to a cvar change and acting between frames: `OnChangedDelegate`, `FWorldDelegates::OnWorldPostActorTick` (S7) | live switching |
+| 36 | Native multicast delegates, `DrawDebugPoint`, `FColor::MakeRedToGreenColorFromScalar`, the `SetComponentTickEnabled` override (S7) | `OnFrameStats`, debug draw, component |
 
 ## 5. `UActorComponent` lifecycle and `PrimaryComponentTick`
 
@@ -614,3 +616,36 @@
 | `FString::SanitizeFloat(double)` | A float as text without trailing zeros | The `UBMaxStaleness` CSV metadata value | Using it where a fixed number of decimals matters |
 | `FMath::Lerp`, `FMath::GetRangePct`, `FMath::DegreesToRadians`, `FMath::Tan` (`Core/Public/Math/UnrealMathUtility.h`) | Linear interpolation, the position of a value within a range, degree conversion, tangent | The significance falloff, the max staleness and the view cone (05 G1) | `GetRangePct` with Min = Max divides by zero; the category code never calls it then |
 | `GetDefault<T>()` | The class default object of `T`; for a config class it holds the loaded ini values | Reading `UUpdateBudgetSettings` once per world | Modifying it at run time (it is shared by everything that reads it) |
+
+---
+
+## APIs added in step S7 (live switching, debug view)
+
+## 35. Reacting to a cvar change, and acting between frames
+
+1. **What they are.**
+   - `IConsoleVariable::OnChangedDelegate()` returns the variable's `FConsoleVariableMulticastDelegate` (`Core/Public/HAL/IConsoleManager.h:242`, `:694`), broadcast whenever the value is set (`Core/Private/HAL/ConsoleManager.cpp:313–337`).
+   - `FWorldDelegates::OnWorldPostActorTick` (`Engine/Classes/Engine/World.h:4526–4527`) is broadcast once per world tick, after the tick manager has finished the frame's tick groups (`LevelTick.cpp:1886` then `:1906`).
+2. **Why they exist.** Systems react to settings without polling, and code that must not run inside a tick group gets a safe point at the end of the frame.
+3. **How they work.**
+   - Both are native multicast delegates: `AddUObject(this, &Class::Method)` returns an `FDelegateHandle`, and `Remove(Handle)` unbinds. A `UObject` binding isn't called once the object is gone.
+   - The cvar delegate fires on **every** set, from any code path, at any point in the frame (console, ini, gameplay code inside an update).
+   - `OnWorldPostActorTick` fires only on frames with actor ticks: not while paused (`bDoingActorTicks`, `LevelTick.cpp:1650–1656`, `:1899`).
+   - At that point the tick manager's `EndFrame` has cleared its newly-spawned state (`TickTaskManager.cpp:1652–1656`), so enabling a tick function takes effect next frame. Inside a tick group it could run again in a later group of the same frame (`EngineBaseTypes.h:357–364`).
+4. **When to use them.** Apply a mode change, a pool resize or anything else that changes which tick functions run, outside the tick groups.
+5. **When not to.** As a per-frame hook for work that belongs in a tick group (use a tick function). Binding the world delegate permanently when it is needed once: bind, act, unbind.
+6. **Common mistakes.**
+   - Switching tick functions directly in the cvar callback: if the change came from inside an update, a client can run twice in that frame.
+   - Forgetting the `World` parameter: the delegate is global and fires for every world, PIE clients included.
+   - Never removing the handle.
+7. **Example.** `Handle = CVarMine->OnChangedDelegate().AddUObject(this, &UMySubsystem::OnChanged);` then in `OnChanged`: `PostTick = FWorldDelegates::OnWorldPostActorTick.AddUObject(this, &UMySubsystem::ApplyAtFrameEnd);` and in `ApplyAtFrameEnd(UWorld* World, ELevelTick, float)`: `if (World != GetWorld()) return; FWorldDelegates::OnWorldPostActorTick.Remove(PostTick); …`
+8. **In this project.** `ub.Enabled` switches a running world between native and budgeted mode at the end of the frame in which it changed (05 H1); the post-tick handler is bound only while a switch is pending.
+
+## 36. Native multicast delegates, debug drawing and the tick override
+
+| API (5.8.4) | What it is | Why it is used here | Common mistake |
+|---|---|---|---|
+| `DECLARE_MULTICAST_DELEGATE_OneParam(FOnFrameStats, const FUpdateBudgetFrameReport&)` + `Broadcast(Report)` | A C++-only event with any number of listeners. No reflection, so no Blueprint binding and no `UFUNCTION` needed | `OnFrameStats`, the design's per-frame stats event for HUDs and tools (05 H2) | Expecting Blueprint to bind it: that needs a dynamic delegate (`DECLARE_DYNAMIC_MULTICAST_DELEGATE`, 06 §20), which costs more per broadcast |
+| `DrawDebugPoint(const UWorld*, FVector const&, float Size, FColor const&, bool bPersistentLines = false, float LifeTime = -1.f, uint8 DepthPriority = 0)` (`Engine/Public/DrawDebugHelpers.h:24`) | A screen-facing square of the given size; lifetime −1 draws it for one frame | `ub.Debug 2`: one point per client, tinted by recency (05 H3) | Calling it in Shipping and expecting output: without `ENABLE_DRAW_DEBUG` (`:14`) the call is an empty inline function (`:186`) |
+| `FColor::MakeRedToGreenColorFromScalar(float)` (`Core/Public/Math/Color.h:640`, `Core/Private/Math/Color.cpp:569–577`) | 0 = red, 0.5 = yellow, 1 = green, with the input clamped | The recency colour scale: one call per point (it replaced an HSV interpolation in the S7 simplify audit) | Passing staleness directly: 1 means *green* here, so the code passes 1 − staleness |
+| `UActorComponent::SetComponentTickEnabled` overridden (virtual, `Engine/Classes/Components/ActorComponent.h:1002`) | The one function `Activate`, `Deactivate`, replication and the async variant call (`ActorComponent.cpp:2819`, `2830`, `3087`, `1771`) | The client records gameplay's tick choice in every mode and applies it only when native (05 H3) | Calling `SetComponentTickEnabled` from the component's own mode logic: that would record the mode as gameplay's choice. The component calls `Super::` there |

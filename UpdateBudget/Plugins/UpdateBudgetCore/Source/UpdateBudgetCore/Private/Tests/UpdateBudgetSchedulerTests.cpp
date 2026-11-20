@@ -215,4 +215,52 @@ bool FUpdateBudgetSchedulerNoStarvationTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+// The three tests below were written by UE5-TestTrust from surviving mutants of this file's scheduler (campaign
+// 2026-11-21_025734_mut-updatebudget at b890bc6): each pins a boundary that no earlier test sat on.
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUpdateBudgetSchedulerDeadlineAtNextFrameTest, "UpdateBudget.Scheduler.DeadlineAtNextFrameIsOptional", UpdateBudgetTests::Flags)
+bool FUpdateBudgetSchedulerDeadlineAtNextFrameTest::RunTest(const FString& Parameters)
+{
+	// A deadline exactly at the next frame time can still wait one frame without breaking the staleness bound, so it
+	// is not mandatory: with a zero budget it doesn't run. (Kills: Deadline < NextFrameTime becoming <=.)
+	const TArray<FBudgetClientState> Clients = UpdateBudgetTests::MakeClients({ 1.0 });
+	FUpdateBudgetScheduler Scheduler;
+	const FBudgetFrameStats Stats = Scheduler.Run(Clients, 1.0, 0.0, [](int32) { return 0.01; });
+
+	TestEqual(TEXT("MandatoryRuns"), Stats.MandatoryRuns, 0);
+	TestEqual(TEXT("Runs"), Stats.Runs, 0);
+	TestEqual(TEXT("Deferred"), Stats.Deferred, 1);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUpdateBudgetSchedulerExactFitTest, "UpdateBudget.Scheduler.ExactFitStillRuns", UpdateBudgetTests::Flags)
+bool FUpdateBudgetSchedulerExactFitTest::RunTest(const FString& Parameters)
+{
+	// Predicted and measured cost 0.25 ms (exact in binary), budget 0.5 ms: the second update fills the budget exactly
+	// and still fits; the third doesn't. (Kills: SpentMs + Predicted > BudgetMs becoming >=.)
+	const TArray<FBudgetClientState> Clients = UpdateBudgetTests::MakeClients({ 5.0, 6.0, 7.0, 8.0 });
+	FUpdateBudgetScheduler Scheduler(1, 0.25, 0.2);
+	const FBudgetFrameStats Stats = Scheduler.Run(Clients, 0.0, 0.5, [](int32) { return 0.25; });
+
+	TestEqual(TEXT("Runs"), Stats.Runs, 2);
+	TestEqual(TEXT("Deferred"), Stats.Deferred, 2);
+	TestEqual(TEXT("SpentMs"), Stats.SpentMs, 0.5, 1e-12);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUpdateBudgetSchedulerExactlyOnBudgetTest, "UpdateBudget.Scheduler.ExactlyOnBudgetIsNotOverBudget", UpdateBudgetTests::Flags)
+bool FUpdateBudgetSchedulerExactlyOnBudgetTest::RunTest(const FString& Parameters)
+{
+	// One optional update that costs exactly the budget: it runs, and spending exactly the budget is not "over".
+	// (Kills: SpentMs > BudgetMs becoming >= in bOverBudget.)
+	const TArray<FBudgetClientState> Clients = UpdateBudgetTests::MakeClients({ 5.0 });
+	FUpdateBudgetScheduler Scheduler(1, 0.5, 0.2);
+	const FBudgetFrameStats Stats = Scheduler.Run(Clients, 0.0, 0.5, [](int32) { return 0.5; });
+
+	TestEqual(TEXT("Runs"), Stats.Runs, 1);
+	TestEqual(TEXT("SpentMs"), Stats.SpentMs, 0.5, 1e-12);
+	TestFalse(TEXT("exactly on budget is not over budget"), Stats.bOverBudget);
+	return true;
+}
+
 #endif // WITH_DEV_AUTOMATION_TESTS

@@ -68,21 +68,46 @@ void UBudgetedUpdateComponent::LeaveBudget()
 
 void UBudgetedUpdateComponent::SetDrivenByScheduler(bool bInDrivenByScheduler)
 {
+	if (bInDrivenByScheduler == bDrivenByScheduler)
+	{
+		return;
+	}
 	bDrivenByScheduler = bInDrivenByScheduler;
 
 	// Registering a tick function re-enables it when bStartWithTickEnabled is set (ActorComponent.cpp:1747),
 	// so the flag must follow the mode too, or a re-registered component would tick natively again.
-	PrimaryComponentTick.bStartWithTickEnabled = !bInDrivenByScheduler;
-	SetComponentTickEnabled(!bInDrivenByScheduler);
+	if (bInDrivenByScheduler)
+	{
+		// The tick may also have been set without going through SetComponentTickEnabled, so read it once here.
+		bNativeTickEnabled = IsComponentTickEnabled();
+		bNativeStartWithTickEnabled = PrimaryComponentTick.bStartWithTickEnabled;
+		PrimaryComponentTick.bStartWithTickEnabled = false;
+		Super::SetComponentTickEnabled(false);
+	}
+	else
+	{
+		PrimaryComponentTick.bStartWithTickEnabled = bNativeStartWithTickEnabled;
+		Super::SetComponentTickEnabled(bNativeTickEnabled);
+	}
+}
+
+void UBudgetedUpdateComponent::SetComponentTickEnabled(bool bEnabled)
+{
+	bNativeTickEnabled = bEnabled;
+	if (!bDrivenByScheduler)
+	{
+		Super::SetComponentTickEnabled(bEnabled);
+	}
 }
 
 void UBudgetedUpdateComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
-	// Driven by the scheduler, the native tick is off. If other code switched it back on (Activate() does,
-	// ActorComponent.cpp:2819), switch it off again instead of updating twice in one frame.
+	// Driven by the scheduler, the native tick is off. SetComponentTickEnabled can't turn it on, but code that sets the
+	// tick function directly can: switch it off again (without recording that as gameplay's choice) instead of updating
+	// twice in one frame.
 	if (bDrivenByScheduler)
 	{
-		SetComponentTickEnabled(false);
+		Super::SetComponentTickEnabled(false);
 		return;
 	}
 

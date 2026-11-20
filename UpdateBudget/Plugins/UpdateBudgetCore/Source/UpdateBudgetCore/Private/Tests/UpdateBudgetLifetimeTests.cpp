@@ -260,8 +260,9 @@ bool FUpdateBudgetLifetimeNoDoubleUpdateTest::RunTest(const FString& Parameters)
 		return false;
 	}
 
-	// Two ways other code can bring a scheduler-driven client's native tick back: re-registering the component
-	// (the engine re-registers its tick functions) and Activate() (which enables the tick). Neither may double-update.
+	// Ways other code can try to bring a scheduler-driven client's native tick back: re-registering the component (the
+	// engine re-registers its tick functions), Activate() (which calls SetComponentTickEnabled), and enabling the tick
+	// function directly. None may double-update.
 	UUpdateBudgetTestComponent* Reregistered = Test.Spawn(Log);
 	UUpdateBudgetTestComponent* Activated = Test.Spawn(Log);
 	Test.Tick();
@@ -271,7 +272,9 @@ bool FUpdateBudgetLifetimeNoDoubleUpdateTest::RunTest(const FString& Parameters)
 	TestFalse(TEXT("re-registered: native tick still off"), Reregistered->IsComponentTickEnabled());
 
 	Activated->Activate(true);
-	TestTrue(TEXT("Activate() really enabled the native tick"), Activated->IsComponentTickEnabled());
+	TestFalse(TEXT("Activate() can't turn the native tick on while the scheduler drives the client"), Activated->IsComponentTickEnabled());
+	Activated->PrimaryComponentTick.SetTickFunctionEnable(true);   // bypasses SetComponentTickEnabled
+	TestTrue(TEXT("the tick function was enabled directly"), Activated->IsComponentTickEnabled());
 
 	Test.Tick(3);
 	TestEqual(TEXT("clients"), Test.Subsystem->GetNumClients(), 2);
@@ -329,6 +332,105 @@ bool FUpdateBudgetLifetimeTeardownTest::RunTest(const FString& Parameters)
 	Test.Wrapper.DestroyTestWorld(true);
 	TestFalse(TEXT("the subsystem is collected with its world"), Subsystem.IsValid());
 	TestEqual(TEXT("updates out of play"), Log.UpdatesOutOfPlay, 0);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUpdateBudgetLifetimeLiveSwitchTest, "UpdateBudget.Lifetime.LiveSwitch", UpdateBudgetTests::Flags)
+bool FUpdateBudgetLifetimeLiveSwitchTest::RunTest(const FString& Parameters)
+{
+	FUpdateLog Log;
+	FTestBudgetWorld Test(true);
+	if (!Test.IsReady(*this))
+	{
+		return false;
+	}
+
+	// Budgeted -> native -> budgeted in a running world. A change takes effect at the end of the frame it is made in,
+	// and every client is updated exactly once in every frame, through both switches. The first change is made from
+	// inside an update, while the scheduler is running: the case the deferral exists for.
+	TArray<UUpdateBudgetTestComponent*> Spawned;
+	auto CheckClientsAre = [this, &Spawned](bool bBudgeted)
+	{
+		for (const UUpdateBudgetTestComponent* Client : Spawned)
+		{
+			TestEqual(TEXT("driven by the scheduler"), Client->IsDrivenByScheduler(), bBudgeted);
+			TestEqual(TEXT("native tick enabled"), Client->IsComponentTickEnabled(), !bBudgeted);
+		}
+	};
+	const FAction SwitchToNative = [&Test](UUpdateBudgetTestComponent& Self, int32 Update)
+	{
+		if (Update == 3)
+		{
+			Test.Enabled.Set(TEXT("0"));
+		}
+	};
+	for (int32 Index = 0; Index < 3; ++Index)
+	{
+		Spawned.Add(Test.Spawn(Log, Index == 0 ? SwitchToNative : FAction()));
+	}
+	Test.Tick(2);
+
+	Test.Tick();   // frame 3: client 0 sets ub.Enabled 0 inside its update
+	TestFalse(TEXT("native after the frame in which it changed"), Test.Subsystem->IsBudgeted());
+	CheckClientsAre(false);
+	Test.Tick(2);
+	TestEqual(TEXT("one update per frame up to the first switch and after it"), Log.Updates, TArray<int32>({ 5, 5, 5 }));
+
+	Test.Enabled.Set(TEXT("1"));
+	Test.Enabled.Set(TEXT("0"));
+	Test.Tick();
+	TestFalse(TEXT("a change undone in the same frame switches nothing"), Test.Subsystem->IsBudgeted());
+
+	Test.Enabled.Set(TEXT("1"));
+	TestFalse(TEXT("no switch before the frame ends"), Test.Subsystem->IsBudgeted());
+	Test.Tick();
+	TestTrue(TEXT("budgeted again"), Test.Subsystem->IsBudgeted());
+	CheckClientsAre(true);
+	Test.Tick(2);
+	TestEqual(TEXT("one update per frame through both switches"), Log.Updates, TArray<int32>({ 9, 9, 9 }));
+	TestEqual(TEXT("updates out of play"), Log.UpdatesOutOfPlay, 0);
+	Test.Wrapper.ForwardErrorMessages(this);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUpdateBudgetLifetimeSwitchKeepsTickStateTest, "UpdateBudget.Lifetime.LiveSwitchKeepsTickState", UpdateBudgetTests::Flags)
+bool FUpdateBudgetLifetimeSwitchKeepsTickStateTest::RunTest(const FString& Parameters)
+{
+	FUpdateLog Log;
+	FTestBudgetWorld Test(false);
+	if (!Test.IsReady(*this))
+	{
+		return false;
+	}
+
+	// Native mode; gameplay pauses one client (tick off). A live switch to budgeted and back must keep gameplay's choices,
+	// including choices made while budgeted: there it pauses the running client and resumes the paused one. The native
+	// ticks stay off while budgeted; the choices take effect after the switch back. (While budgeted, the scheduler
+	// updates every client: 02 section 12, item 8.)
+	UUpdateBudgetTestComponent* Running = Test.Spawn(Log);
+	UUpdateBudgetTestComponent* Paused = Test.Spawn(Log);
+	Paused->SetComponentTickEnabled(false);
+	Test.Tick();
+	TestEqual(TEXT("native: the paused client doesn't update"), Log.Updates, TArray<int32>({ 1, 0 }));
+
+	Test.Enabled.Set(TEXT("1"));
+	Test.Tick();
+	TestTrue(TEXT("budgeted"), Test.Subsystem->IsBudgeted());
+	Running->SetComponentTickEnabled(false);
+	Paused->SetComponentTickEnabled(true);
+	TestFalse(TEXT("budgeted: gameplay can't turn a native tick on"), Paused->IsComponentTickEnabled());
+
+	Test.Enabled.Set(TEXT("0"));
+	Test.Tick();
+	TestFalse(TEXT("native again"), Test.Subsystem->IsBudgeted());
+	TestFalse(TEXT("the client paused while budgeted is paused"), Running->IsComponentTickEnabled());
+	TestTrue(TEXT("the client resumed while budgeted ticks again"), Paused->IsComponentTickEnabled());
+
+	const TArray<int32> Before = Log.Updates;
+	Test.Tick(2);
+	TestEqual(TEXT("the paused client doesn't update natively"), Log.Updates[0], Before[0]);
+	TestEqual(TEXT("the resumed client updates natively, once per frame"), Log.Updates[1], Before[1] + 2);
+	Test.Wrapper.ForwardErrorMessages(this);
 	return true;
 }
 

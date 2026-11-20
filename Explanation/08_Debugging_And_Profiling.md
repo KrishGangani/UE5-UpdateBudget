@@ -1,16 +1,19 @@
 # 08 · Debugging And Profiling: UpdateBudget
 
-**Status:** the tools below exist since S6 and are listed as they are built. The full profiling guide (Unreal Insights drill-downs, the cooling-down list cost of B2/B3, the sort cost at N = 4,000) is written in **Phases 7–8**, with data.
+**Status:** the tools below exist since S6 and S7 and are listed as they are built. The full profiling guide (Unreal Insights drill-downs, the cooling-down list cost of B2/B3, the sort cost at N = 4,000) is written in **Phases 7–8**, with data.
 
 ---
 
-## What you can switch and see (as of S6)
+## What you can switch and see (as of S7)
 
 | Tool | Command | What it shows | Where it is built |
 |---|---|---|---|
-| Mode | `-ini:Engine:[ConsoleVariables]:ub.Enabled=1` on the command line (or `ub.Enabled=1` in `DefaultEngine.ini`'s `[ConsoleVariables]`) | Budgeted mode for every world that begins play afterwards. Read once per world; S7 adds live switching | 05 F4, 06 §26 |
+| Mode | `-ini:Engine:[ConsoleVariables]:ub.Enabled=1` on the command line (or `ub.Enabled=1` in `DefaultEngine.ini`'s `[ConsoleVariables]`) | Budgeted mode from the world's begin play (05 F4, 06 §26) | 05 F4 |
+| Live switch | `ub.Enabled 0` / `ub.Enabled 1` in the console while playing | Every running world switches at the end of the next frame that ticks actors (not while paused). The log says `Switched to … mode at … s`; the capture gets a `ModeSwitch` event and `ubmode = Mixed` | 05 H1 |
 | Budget | `ub.BudgetMs 1.5` in the console; `ub.BudgetMs -1` returns to the settings value | Takes effect on the next frame | 05 G4 |
-| On-screen line | `ub.Debug 1` | Per world, every frame: mode, clients, updates (mandatory, deferred), spent of budget (orange and `OVER` when over), max gap | 05 G4 |
+| On-screen line | `ub.Debug 1` | Per world, every frame: mode, clients, updates (mandatory, deferred), spent of budget (orange and `OVER` when over), max gap, near clients and missed | 05 G4, H2 |
+| Recency draw | `ub.Debug 2` | A point above every agent: green when just updated, yellow half way, red as stale as the settings allow | 05 H4 |
+| Frame stats in code | `Subsystem->OnFrameStats.AddLambda([](const FUpdateBudgetFrameReport& Frame) { … })` | The same numbers as the CSV, once per frame, for a HUD or a tool | 05 H2 |
 | Cycle stats | `stat UpdateBudget` (Development builds) | `RunFrame` (the whole budgeted path) and `Deadlines` (the significance loop) | 05 G4, 06 §32 |
 | The run's configuration | The log line `LogUpdateBudget: Display: <Budgeted\|Native> mode (ub.Enabled n). Budget … ms (settings …, ub.BudgetMs …), n categories. Update timer resolution: … ns.` | Proves which mode, budget and category count a run used. A warning follows for any inverted category | 05 G4 |
 | Ini route check | `LogConfig: CVar [[ub.Enabled:1]] deferred - dummy variable created` | In the editor binary, the `-ini:` value arrived before the plugin registered the variable and was taken over (09, S5-d) | 06 §26 |

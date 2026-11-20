@@ -11,11 +11,29 @@
 
 #define UE_API UPDATEBUDGETCORE_API
 
+class IConsoleVariable;
+
+/** One frame's numbers, as published to the CSV capture, the ub.Debug line and OnFrameStats. */
+struct FUpdateBudgetFrameReport
+{
+	bool bBudgeted = false;
+	int32 Clients = 0;
+	int32 Updates = 0;
+	double MaxGapSeconds = 0.0;
+
+	/** The rest is filled by RunFrame, so only in budgeted mode. */
+	double BudgetMs = 0.0;
+	FBudgetFrameStats Scheduler;
+	int32 NearClients = 0;   // significance 1 (near and in view) when the deadlines were set
+	int32 NearMissed = 0;    // ...and not updated this frame: SC3's "near client missed"
+};
+
 /**
  * Owns the registry of UBudgetedUpdateComponents in one world, runs their updates in budgeted mode,
  * and publishes per-frame telemetry.
  *
- * Mode (cvar ub.Enabled, read once in OnWorldBeginPlay):
+ * Mode (cvar ub.Enabled, read in OnWorldBeginPlay; a later change switches every client at the end of the next frame
+ * that ticks actors, so never while the game is paused):
  *   native (0)    every client updates from its own native tick, as in the baselines B0-B3;
  *   budgeted (1)  native ticks are off, and FUpdateBudgetTickFunction calls RunFrame() in TG_PrePhysics: every
  *                 client's significance (distance and view from the player camera) gives its max staleness and
@@ -53,11 +71,11 @@ public:
 	 */
 	void RecordUpdate(const UBudgetedUpdateComponent& Client, double PreviousUpdateTime)
 	{
-		++FrameUpdates;
+		++Frame.Updates;
 		const double UpdateTime = Client.GetLastUpdateTime();
 		if (PreviousUpdateTime >= 0.0)
 		{
-			FrameMaxGapSeconds = FMath::Max(FrameMaxGapSeconds, UpdateTime - PreviousUpdateTime);
+			Frame.MaxGapSeconds = FMath::Max(Frame.MaxGapSeconds, UpdateTime - PreviousUpdateTime);
 		}
 		// INDEX_NONE while the client waits in PendingAdds; it is copied from the client when the add is applied.
 		if (Client.RegistryIndex != INDEX_NONE)
@@ -71,6 +89,10 @@ public:
 
 	/** True in budgeted mode: the scheduler runs the updates and native ticks are off. */
 	bool IsBudgeted() const { return bBudgeted; }
+
+	/** Broadcast once per frame, after the frame's updates, with the numbers the CSV capture gets. For HUDs and tools. */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnFrameStats, const FUpdateBudgetFrameReport&);
+	FOnFrameStats OnFrameStats;
 
 	//~ Begin UWorldSubsystem
 	/** Reads the mode, applies it, and registers the scheduler's tick function (01b #2: never in Initialize). */
@@ -117,11 +139,25 @@ private:
 	/** ub.Debug 1: one on-screen line with this frame's numbers. */
 	void ShowDebugStats() const;
 
+	/** ub.Debug 2: a point above every client, green when just updated, red at the longest allowed staleness. */
+	void DrawClientRecency() const;
+
+	/** ub.Enabled changed: switch at the end of the frame (a change can arrive in the middle of an update). */
+	void HandleEnabledChanged(IConsoleVariable* Variable);
+
+	/** After this world's tick frame has ended: apply a pending mode switch, so no client is updated twice or not at all. */
+	void HandlePostActorTick(UWorld* World, ELevelTick TickType, float DeltaSeconds);
+
+	/** Switches every client and the scheduler's tick function to the given mode. */
+	void SetBudgeted(bool bInBudgeted);
+
 	/** Runs one client for the policy and returns its measured cost in ms (0 for an entry that is no longer valid). */
 	double RunClient(int32 Index);
 
-	/** Makes the client scheduler-driven in budgeted mode and native otherwise; does nothing if it already is. */
-	void ApplyMode(UBudgetedUpdateComponent& Client) const;
+	/** Applies the current mode to every client and to the scheduler's tick function. */
+	void ApplyModeToClients();
+
+	static const TCHAR* GetModeName(bool bInBudgeted) { return bInBudgeted ? TEXT("Budgeted") : TEXT("Native"); }
 
 	/** Appends a client to both arrays; its hot state starts from the client's own last update time. */
 	void AddClient(UBudgetedUpdateComponent* Client);
@@ -155,6 +191,11 @@ private:
 	FUpdateBudgetScheduler Scheduler;
 	FUpdateBudgetTickFunction TickFunction;
 	FDelegateHandle PostGarbageCollectHandle;
+	FDelegateHandle EnabledChangedHandle;
+	FDelegateHandle PostActorTickHandle;   // bound only while a switch is pending
+
+	/** The longest staleness any category allows (s): the SC2 bound, and red in the debug draw. */
+	float LongestMaxStaleness = 0.f;
 
 	/** The settings' categories, copied in OnWorldBeginPlay (at least one). */
 	TArray<FUpdateBudgetCategory> Categories;
@@ -170,13 +211,8 @@ private:
 	/** Set when the loop met a null or invalid entry (or GC ran inside it); RunFrame removes them after the loop. */
 	bool bHasInvalidClients = false;
 
-	/** This frame's totals, published and reset in Tick(). The last four exist only in budgeted mode. */
-	int32 FrameUpdates = 0;
-	double FrameMaxGapSeconds = 0.0;
-	FBudgetFrameStats FrameStats;
-	double FrameBudgetMs = 0.0;
-	int32 FrameNearClients = 0;     // significance 1 (near and in view) when the deadlines were set
-	int32 FrameNearMissed = 0;      // ...and not updated this frame: SC3's "near client missed"
+	/** This frame's numbers, filled as the frame runs, then published and reset in Tick(). */
+	FUpdateBudgetFrameReport Frame;
 };
 
 #undef UE_API
