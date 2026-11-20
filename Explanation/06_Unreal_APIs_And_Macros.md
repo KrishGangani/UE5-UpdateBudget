@@ -110,6 +110,9 @@
 | 19 | `FSubsystemCollectionBase::InitializeDependency` (S3) | baseline driver |
 | 20 | Dynamic delegates: `OnEndPlay`, `AddDynamic`, `UFUNCTION` (S3) | baseline driver |
 | 21 | Small utilities from the S3 clean-up: `FMath::GetRangePct`, `TNumericLimits`, `GetCameraCacheView` / `FMinimalViewInfo`, `TArray::RemoveSingleSwap`, `MakeArrayView`, `ensureMsgf`, `FString::ToUpperInline` | baseline driver |
+| 22 | `TFunctionRef` and `TConstArrayView` (S4) | `FUpdateBudgetScheduler::Run` |
+| 23 | Automation tests: `IMPLEMENT_SIMPLE_AUTOMATION_TEST`, `EAutomationTestFlags`, `TestEqual`/`TestTrue`, `WITH_DEV_AUTOMATION_TESTS`, `Automation RunTests` (S4) | scheduler tests, `Tools\run_tests.bat` |
+| 24 | Sorting and numeric safety: `TArray::Sort` with a predicate, `FMath::IsFinite`, `TArray::Init` / `SetNumUninitialized` (S4) | scheduler |
 
 ## 5. `UActorComponent` lifecycle and `PrimaryComponentTick`
 
@@ -358,3 +361,60 @@
 | `MakeArrayView(Pointer, Count)` | A non-owning view over existing memory | Passes B3's single viewpoint to `USignificanceManager::Update(TArrayView<const FTransform>)` without building an array | Keeping the view after the memory it points to is gone (it owns nothing) |
 | `ensureMsgf(expr, TEXT("…"), …)` | Like `ensure`, with a formatted message; logs a call stack the first time it fails and returns the result | Reports a broken "append-only" contract on the agent list instead of silently skipping agents | Putting side effects inside it, or using it for conditions that are expected at run time (use `if` and a log for those) |
 | `FString::ToUpperInline()` | Upper-cases the string in place | The baseline name in the log and CSV metadata reads `B2`/`B3` whatever the command line said | Calling it only for comparisons: `FString ==` is already case-insensitive |
+
+---
+
+## APIs added in step S4 (the scheduling policy)
+
+## 22. `TFunctionRef` and `TConstArrayView`
+
+1. **What they are.**
+   - `TFunctionRef<R(Args...)>` is a non-owning reference to any callable: a lambda, a function or a functor (`Core/Public/Templates/Function.h`).
+   - `TConstArrayView<T>` (`TArrayView<const T>`) is a non-owning pointer + count over contiguous elements (`Core/Public/Containers/ArrayView.h`).
+2. **Why they exist.** Code can take "something to call" or "some elements to read" without copying or allocating, and without caring whether the caller holds a `TArray`, a C array or a slice.
+3. **How they work.**
+   - `TFunctionRef` stores a pointer to the callable and a pointer to a small invoker function: no heap, no copy.
+   - `TArrayView` stores a pointer and a size.
+   - Both are valid only while what they point to lives.
+4. **When to use them.** As **parameters** for callbacks and read-only arrays that are used during the call and not kept.
+5. **When not to.** To store either beyond the call. Store a `TFunction` (owning, may allocate) or a `TArray` instead.
+6. **Common mistakes.**
+   - Keeping a `TFunctionRef` to a temporary lambda in a member: it dangles.
+   - Building a view over a `TArray` and then adding to the array: the view may point to freed memory after reallocation.
+7. **Example.** `double Sum(TConstArrayView<double> V, TFunctionRef<double(double)> F) { double S = 0; for (double X : V) S += F(X); return S; }`
+8. **In this project.** `FUpdateBudgetScheduler::Run(TConstArrayView<FBudgetClientState> Clients, …, TFunctionRef<double(int32)> RunClient)`.
+   - The subsystem (S5) passes its own state array and a lambda that runs and times one client, and tests pass fake ones.
+   - Nothing is copied per frame.
+
+## 23. Automation tests: `IMPLEMENT_SIMPLE_AUTOMATION_TEST` and friends
+
+1. **What it is.** Unreal's built-in test framework (`Core/Public/Misc/AutomationTest.h`). A macro declares and registers a test class; `RunTest` holds the body.
+2. **Why it exists.** Engine and game code can be tested inside the real engine, from the editor's Session Frontend or headless from the command line, with results in the log and a JSON report.
+3. **How it works.**
+   - `IMPLEMENT_SIMPLE_AUTOMATION_TEST(FClass, "Dotted.Name", Flags)` defines `FClass` and a static instance that registers itself.
+   - The flags must contain **an application context** (`EditorContext`, `ClientContext`, …) and **exactly one filter** (`SmokeFilter`, `EngineFilter`, `ProductFilter`, …). Both are checked by `static_assert` (`AutomationTest.h:4127–4133`).
+   - `TestEqual(What, Actual, Expected[, Tolerance])` / `TestTrue` / `TestFalse` record an error and continue.
+   - Tests exist only when `WITH_DEV_AUTOMATION_TESTS` is 1. UBT sets it for every configuration except Test and Shipping (`UnrealBuildTool/Configuration/UEBuildTarget.cs:6316`).
+   - Headless: `UnrealEditor-Cmd <project> -ExecCmds="Automation RunTests <filter>;Quit"`.
+     - `RunTests` is parsed at `AutomationController/Private/AutomationCommandline.cpp:610` and `Quit` at `:726`.
+     - When the queue empties, a failure sets a non-zero exit code (`:495–504`).
+4. **When to use it.** Logic that can run without a level: here, the whole scheduling policy. (CQTest and Functional Tests exist for richer setups.)
+5. **When not to.** Timing claims. Automation tests check rules; performance is measured with the benchmark protocol.
+6. **Common mistakes.**
+   - No filter flag, or two filter flags (compile error).
+   - Floating-point `TestEqual` without a tolerance.
+   - Assuming tests run in Shipping (they're compiled out).
+   - Putting `Quit` in a separate `-ExecCmds` entry: it must be inside the same `Automation` command so it waits for the tests.
+7. **Example.** `IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMyTest, "Game.Math.Add", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter) bool FMyTest::RunTest(const FString&) { TestEqual(TEXT("1+1"), 1 + 1, 2); return true; }`
+8. **In this project.** Eight tests under `UpdateBudget.Scheduler.*` (05 E3), run headless by `Tools\run_tests.bat` through the job queue.
+
+## 24. Sorting and numeric safety in the scheduler
+
+| API | What it is (5.8.4) | Why it is used here | Common mistake |
+|---|---|---|---|
+| `TArray::Sort(Predicate)` | An in-place introsort; **not stable** | One sort by deadline per frame (v1) | Expecting equal elements to keep their order. The scheduler breaks ties by index so the run order is deterministic |
+| `FMath::IsFinite(double)` | True unless the value is NaN or ±infinity (`Core/Public/Microsoft/MicrosoftPlatformMath.h:18`, `_finite`) | A NaN measured cost would poison the moving average | Thinking `FMath::Max(0.0, NaN)` removes a NaN: it returns NaN, because every comparison with NaN is false |
+| `TArray::Init(Value, Count)` | Resizes to `Count` copies of `Value` | One cost prediction per category | Confusing it with `Reserve`, which allocates without adding elements |
+| `FMath::Lerp(A, B, Alpha)` | `A + Alpha * (B - A)` (`Core/Public/Math/UnrealMathUtility.h:1123–1126`) | The moving-average step, by its name | Reaching for `FMath::WeightedMovingAverage` (same file, line 2494): it computes `Cur·W + Prev·(1 − W)` and re-clamps the weight on every call, so its result can differ in the last bit |
+| `TArrayView::GetData()` | A raw pointer to the first element | The sort comparator reads deadlines without the per-access range check | Indexing a raw pointer with an index that isn't guaranteed in range: the check is gone, so out-of-range is undefined behaviour. Here every index is 0..N−1 by construction |
+| `TArray::SetNumUninitialized(N, EAllowShrinking::No)` | Sets the size without constructing or zeroing elements, and keeps the memory when shrinking | The sort buffer is fully rewritten every frame, so zeroing would be wasted work | Reading elements before writing them: they hold garbage |

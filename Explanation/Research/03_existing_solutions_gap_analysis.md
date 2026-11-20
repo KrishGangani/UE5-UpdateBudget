@@ -421,7 +421,7 @@ Influence maps (including GPU ones), utility AI, StateTree and Smart Objects all
 ### 11.3 Known limitations
 
 - The runtime budget does not seem to include scheduler time. One team saw about 1 ms spikes against a 500 µs budget on PS5. Epic suggested capping concurrent generating components (snippet only: forum "Runtime Cost in PCG Hierarchical Generation").
-- Runtime navmesh for PCG content needs `Dynamic` generation, which is expensive. The forum workaround is to lock nav builds during PCG and rebuild dirty areas afterwards. A user who did this reported "20 frames back" and said the lock API is undocumented (snippet only: forum threads 2693069, 2704680). Older reports put Dynamic navmesh at 20–40 ms (snippet only).
+- Runtime navmesh for PCG content needs `Dynamic` generation, which is expensive. The forum workaround is to lock nav builds during PCG and rebuild dirty areas afterwards, and users say the lock API is undocumented (snippet only: forum thread 2693069). *(Corrected 2026-11-21 during P08 Phase 2: an earlier version attributed a "20 frames back" quote to this workaround; that quote comes from forum thread 2704680, which is not about PCG.)* Older reports put Dynamic navmesh at 20–40 ms (snippet only).
 
 ### 11.4 Community
 

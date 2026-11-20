@@ -136,7 +136,8 @@ On weaker platforms the same content simply doesn't fit.
 - **Laptop noise control:**
   - AC power and the same power mode every time;
   - 10 s warm-up excluded, then a 60 s capture;
-  - **6 runs per configuration** (an even number, so with rotating order each configuration leads equally often), **interleaved** with the order rotated every round, after **one discarded priming run** that warms the caches;
+  - **runs per combination = the smallest multiple of the number of compared configurations that is at least 4** (4 for B0–B3, 5 once UB joins), **interleaved** with the order rotated every round, so every configuration sits in every order position equally often; after **one discarded priming run** that warms the caches. *(Changed in S3 from "6 runs": with 4 configurations, 6 runs over-represents the first two order positions, and 4 runs is the balanced design. Reason and data: 09, step S3.)*
+  - **every run pinned to the performance cores** (this CPU is hybrid: 8 P-cores + 8 E-cores). *(Added in S3, after the baseline batch showed Windows placing the game thread on an E-core: 09, step S3.)*
   - confirm the RTX GPU is the active adapter.
 - **Statistics:** no shipped tool prints p95/p99, so a small script (`Tools\csv_stats.py`) computes them. It drops the CSV's last two rows (a repeated header and metadata).
   - Percentiles are computed per run; we report the **median across runs** plus the **min–max range**.

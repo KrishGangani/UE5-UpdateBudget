@@ -66,3 +66,18 @@
 | Changing tick intervals in a `Concurrent` post-significance function | Intermittent tick-manager asserts or corruption: worker threads touching game-thread state | `EPostSignificanceType::Sequential` |
 | Using `SetComponentTickInterval` and expecting an immediate effect | A far agent that comes near keeps updating slowly for up to its old interval | `SetComponentTickIntervalAndCooldown` (06 §18), only when the band changes |
 | ⚠ found while testing: **looking for `UBBaseline/Retune` in the CSV** | The column "doesn't exist" | Timing-stat columns include the thread: `UBBaseline/GameThread/Retune`. List the header once before writing analysis code |
+
+## Measurement and the scheduling policy (S3 batch, S4): mistakes found by data, by another project and by review
+
+| Mistake | How to spot it | How to prevent it |
+|---|---|---|
+| ⚠ found in the S3 batch: **trusting the OS to put the game thread on a fast core** (hybrid CPU: 8 P-cores + 8 E-cores) | Runs sit at **two stable levels about 1.6× apart**; one run **steps** between them mid-capture. Thermal drift looks different: a slow ramp | Pin the benchmark process to the performance cores once (`performance_core_mask()`, `pin_self()`): every game it starts inherits the mask. Record the applied mask, then re-capture. Verified: B0 at N = 4,000 went from 16.5–28.3 ms to 16.2–18.0 ms |
+| ⚠ caught by P03 (UE5-TestTrust): **`cmd /c start /wait` swallows the exit code** | A program that exits with 3 "succeeds" | Launch the executable directly as a child and pin it with `SetProcessAffinityMask`. If `start` is needed, `cmd /v:on /s /c "start "" /wait … & exit !errorlevel!"` |
+| ⚠ caught (review): **a NaN entering a moving average** | After one bad measurement, every frame runs every client and is never "over budget" (every comparison with NaN is false) | Treat non-finite measurements as 0 (`FMath::IsFinite`), and test it with `quiet_NaN()` |
+| ⚠ caught (review): **a test that never reaches the case it claims to test** | Work out demand against capacity: at the first budget, optional demand (16.7 per frame) fit the free capacity (30), so the "overload" never happened | Make the precondition real, then **assert it happened** (`FramesWithForcedRuns > 0`) |
+| Sorting with a non-stable sort and no tie-break | Two clients with equal deadlines swap order between runs; results differ between identical runs | Break ties by index in the predicate |
+| ⚠ caught (review): **pairing runs by list position** | A skipped run shifts every later pair; differences mix rounds | Pair by the key both sides share (the run index) |
+| ⚠ caught by P02 (UE5-SpawnPacer): **passing a command-line flag the engine doesn't parse** (`-ExitAfterSeconds`) | Nothing happens, so nothing tells you | Grep `Engine/Source` for the flag's text before relying on it; it's now removed from `smoke_game.bat` |
+| ⚠ found in the S4 test log: **a deprecated command-line argument** (`-ReportOutputPath=`) | The run works, but the log carries `Warning: Argument -ReportOutputPath= is now -ReportExportPath=` | Read every warning in a tool run, not only the exit code; use the name the engine parses today (`AutomationControllerManager.cpp:233`) |
+| ⚠ found in the P02 audit: **committing an engine-written security token** (`AndroidFileServer` `SecurityToken` in `DefaultEngine.ini`) | Read every engine-written block in committed config before a public push | Disable plugins the project doesn't need (A1) and delete what they wrote |
+| ⚠ caught (review): **a default that yields one run** | A one-config batch reports a "median across runs" of n = 1 with no spread | A minimum run count (4), rounded up to a multiple of the config count |

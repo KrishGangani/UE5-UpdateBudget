@@ -1,12 +1,14 @@
 # P01 · UpdateBudget: a frame-time budget for gameplay logic
 
+**Author:** Krish Gangani · [github.com/KrishGangani](https://github.com/KrishGangani)
+
 **Domain:** Performance & profiling · game-thread CPU · **Difficulty:** ★★★☆☆ · **Engine:** UE 5.8.4
 
 > **Status: in progress. There are no results yet.** Sections marked *(pending)* are filled in only from real measurements, in the phase named.
 
 | Phase | 1 Problem | 2 Research | 3 Architecture | 4 Foundation | 5 Implementation | 6 Explanation | 7 Testing | 8 Profiling | 9 Review | 10 Portfolio |
 |---|---|---|---|---|---|---|---|---|---|---|
-| State | ✓ | ✓ | ✓ final | ✓ | in progress (S3 of 8) | ongoing | — | — | — | — |
+| State | ✓ | ✓ | ✓ final | ✓ | in progress (S4 of 8) | ongoing | — | — | — | — |
 
 ---
 
@@ -53,3 +55,7 @@ The UE project is in [UpdateBudget/](UpdateBudget/) (UE 5.8.4, C++):
 | [09](Explanation/09_Testing_And_Benchmarks.md) | Every check and benchmark batch so far, with its raw-data batch name |
 | [08](Explanation/08_Debugging_And_Profiling.md) · [10](Explanation/10_Interview_Questions.md) · [11](Explanation/11_Optimization_Decisions.md) · [12](Explanation/12_Future_Scalability.md) | Debugging and profiling, interview questions, optimisation decisions, future scalability. Filled in during Phases 8–10 |
 | [Research/](Explanation/Research/) | The portfolio-wide research this project draws on: job market, technical challenges, existing solutions, local engine verification |
+
+## License
+
+MIT, see [LICENSE](LICENSE). Unreal Engine itself is not included and is covered by Epic Games' own license.

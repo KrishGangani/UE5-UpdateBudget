@@ -1,15 +1,16 @@
 """P01 UpdateBudget - run a benchmark batch on the packaged build and collect every artefact.
 
 Usage (from anywhere):
-    python run_bench.py --configs B0,B1 --agents 1000,2000 --runs 6 [--work 128] [--capture 60] [--warmup 10]
+    python run_bench.py --configs B0,B1 --agents 1000,2000 [--runs N] [--work 128] [--capture 60] [--warmup 10]
                         [--wave-at SEC] [--label NAME] [--cooldown 5] [--no-prime] [--dry-run]
 
 What one batch does:
   1. Records the environment once (CPU, GPU + driver, OS build, power plan, AC power, engine, resolution).
   2. Runs one PRIMING run first (discarded) so file, driver and PSO caches are warm for every measured run.
   3. Runs every (config x agents x work) combination --runs times, INTERLEAVED: the config order rotates every
-     round so thermal drift on this laptop spreads over all configs. Use an even --runs with two configs so each
-     leads equally often.
+     round so thermal drift on this laptop spreads over all configs. For the default number of runs see --runs
+     (Benchmarks/README.md, measurement rules). On a hybrid CPU the batch process pins itself to the performance
+     cores, so every game it starts inherits that mask; the applied mask is recorded in the environment.
   4. Before each run, deletes the build's GameUserSettings.ini (it can override VSync / frame-rate caps).
   5. After each run, moves the CSV capture, the per-agent run report and the run's own log into Benchmarks/Raw as
      <batch>_<Config>[_W<work>]_N<agents>_r<run>.<ext>, where <batch> = YYYY-MM-DD_HHMMSS[_label].
@@ -24,12 +25,15 @@ Every run uses: fixed step (-deterministic -FPS=60), real GPU at 1280x720 window
 from __future__ import annotations
 
 import argparse
+import ctypes
 import datetime as dt
 import glob
 import json
+import math
 import os
 import shutil
 import statistics
+import struct
 import subprocess
 import sys
 import time
@@ -40,11 +44,14 @@ import csv_stats  # noqa: E402  (same folder)
 
 PROJECT_DIR = os.path.dirname(TOOLS_DIR)
 BUILD_DIR = os.path.join(PROJECT_DIR, "Build", "Windows")
-EXE = os.path.join(BUILD_DIR, "UpdateBudget.exe")
+# The real game executable, launched directly. (The packaged bootstrap Build\Windows\UpdateBudget.exe only starts
+# this one; launching it directly makes the game a direct child, so its exit code and its kill are reliable.)
+EXE = os.path.join(BUILD_DIR, "UpdateBudget", "Binaries", "Win64", "UpdateBudget.exe")
 SAVED = os.path.join(BUILD_DIR, "UpdateBudget", "Saved")
 RAW_DIR = os.path.join(PROJECT_DIR, "Benchmarks", "Raw")
 SUMMARY_DIR = os.path.join(PROJECT_DIR, "Benchmarks", "Summaries")
 ENGINE_BUILD_VERSION = r"C:\Program Files\Epic Games\UE_5.8\Engine\Build\Build.version"
+MIN_RUNS = 4                    # fewest measured runs per combination (Benchmarks/README.md, measurement rules)
 STARTUP_MARGIN_SECONDS = 180.0  # generous allowance for engine start, spawning and shutdown before a run is declared hung
 
 COMMON_ARGS = ("-windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 "
@@ -67,6 +74,62 @@ def powershell(command: str) -> str:
     return result.stdout.strip()
 
 
+KERNEL32 = None
+if sys.platform == "win32":
+    KERNEL32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    KERNEL32.GetCurrentProcess.restype = ctypes.c_void_p
+    KERNEL32.SetProcessAffinityMask.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
+    KERNEL32.GetProcessAffinityMask.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_size_t), ctypes.POINTER(ctypes.c_size_t)]
+
+
+def performance_core_mask() -> int | None:
+    """Affinity mask of the performance cores on a hybrid CPU; None on a non-hybrid CPU or off Windows.
+
+    Why: on this i7-14650HX (8 P-cores + 8 E-cores) the S3 baseline batch showed runs that sat at two stable levels
+    about 1.6x apart, and one run that stepped between them mid-capture: Windows had placed the game thread on an
+    E-core (09, step S3). Pinning to the P-cores gives every run what a foreground game normally gets.
+    Source of truth: GetLogicalProcessorInformationEx(RelationProcessorCore) reports an EfficiencyClass per physical
+    core; the P-cores have the higher class. Only processor group 0 exists on a machine with < 64 logical CPUs.
+    """
+    if KERNEL32 is None:
+        return None
+    length = ctypes.c_ulong(0)
+    KERNEL32.GetLogicalProcessorInformationEx(0, None, ctypes.byref(length))
+    buffer = ctypes.create_string_buffer(length.value)
+    if not length.value or not KERNEL32.GetLogicalProcessorInformationEx(0, buffer, ctypes.byref(length)):
+        return None
+    raw, offset, masks = buffer.raw, 0, {}          # efficiency class -> combined mask of its cores
+    while offset < length.value:
+        relationship, size = struct.unpack_from("<II", raw, offset)
+        if relationship == 0 and size >= 48:                     # RelationProcessorCore
+            efficiency_class = raw[offset + 9]                   # PROCESSOR_RELATIONSHIP.EfficiencyClass
+            mask, group = struct.unpack_from("<QH", raw, offset + 32)   # GroupMask[0]: KAFFINITY Mask, WORD Group
+            if group == 0:
+                masks[efficiency_class] = masks.get(efficiency_class, 0) | mask
+        offset += size
+    return masks[max(masks)] if len(masks) > 1 else None
+
+
+PERFORMANCE_CORE_MASK = performance_core_mask()
+
+
+def pin_self(mask: int) -> bool:
+    """Restricts this batch process to the CPUs in mask. Every process it starts afterwards inherits the mask from its
+    first instruction, so each game runs pinned for its whole life, engine start-up included."""
+    return bool(KERNEL32.SetProcessAffinityMask(KERNEL32.GetCurrentProcess(), mask))
+
+
+def applied_mask() -> str:
+    """The affinity this process actually has (read back from Windows, not the one requested)."""
+    if KERNEL32 is None:
+        return "not Windows"
+    process_mask, system_mask = ctypes.c_size_t(0), ctypes.c_size_t(0)
+    KERNEL32.GetProcessAffinityMask(KERNEL32.GetCurrentProcess(), ctypes.byref(process_mask), ctypes.byref(system_mask))
+    if process_mask.value == system_mask.value:
+        return f"0x{process_mask.value:X} (all logical processors)"
+    return f"0x{process_mask.value:X} (performance cores only; hybrid CPU)"
+
+
 def environment_record() -> dict:
     """Facts that must accompany every result (Benchmarks/README.md, environment record)."""
     with open(ENGINE_BUILD_VERSION, encoding="utf-8") as handle:
@@ -84,6 +147,7 @@ def environment_record() -> dict:
         "on_ac_power": powershell("(Get-CimInstance Win32_Battery | Select-Object -First 1).BatteryStatus") == "2",
         "resolution": "1280x720 windowed, default scalability",
         "common_args": COMMON_ARGS,
+        "cpu_affinity": applied_mask(),
     }
 
 
@@ -111,10 +175,14 @@ def launch(name: str, config: str, agents: int, work: int | None, args) -> tuple
     if os.path.exists(gus):
         os.remove(gus)
     started = time.time()
+    process = subprocess.Popen(command)   # inherits this process's CPU affinity (main: pin_self)
     try:
-        exit_code = subprocess.run(command, timeout=args.warmup + args.capture + STARTUP_MARGIN_SECONDS).returncode
+        exit_code = process.wait(timeout=args.warmup + args.capture + STARTUP_MARGIN_SECONDS)
     except subprocess.TimeoutExpired:
         exit_code = None
+    finally:
+        if process.poll() is None:   # timeout, Ctrl+C or any other error: never leave a game running into the next run
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(process.pid)], capture_output=True)
     return command, exit_code, started, time.time() - started
 
 
@@ -212,7 +280,9 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--configs", default="B0")
     parser.add_argument("--agents", default="1000")
     parser.add_argument("--work", default="", help="comma list of compute iterations; empty = the brain's calibrated default")
-    parser.add_argument("--runs", type=int, default=6)
+    parser.add_argument("--runs", type=int, default=0,
+                        help=f"runs per combination; 0 (default) = the smallest multiple of the number of configs that is "
+                             f"at least {MIN_RUNS}, so the rotation puts every config in every order position equally often")
     parser.add_argument("--warmup", type=float, default=10.0)
     parser.add_argument("--capture", type=float, default=60.0)
     parser.add_argument("--wave-at", type=float, default=None)
@@ -230,9 +300,24 @@ def main(argv: list[str]) -> int:
     if args.wave_at is not None and not (0.0 <= args.wave_at < args.capture):
         parser.error("--wave-at must be inside the capture window (0 <= wave-at < capture)")
     agent_counts = [int(a) for a in args.agents.split(",") if a.strip()]
+    if args.runs <= 0:
+        args.runs = math.ceil(MIN_RUNS / len(configs)) * len(configs)
+    elif args.runs % len(configs):
+        print(f"WARNING: --runs {args.runs} is not a multiple of {len(configs)} configs; the rotation is unbalanced")
     works = [int(w) for w in args.work.split(",") if w.strip()] or [None]
     if not os.path.exists(EXE) and not args.dry_run:
         parser.error(f"packaged build not found: {EXE} (run Tools\\package.bat first)")
+
+    # Keep the display and the system awake while the batch runs, the way a video player does: an occluded or
+    # locked desktop can throttle a windowed game's presentation. It applies only while this process lives and
+    # changes no power settings (SetThreadExecutionState: ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED).
+    if not args.dry_run and KERNEL32 is not None:
+        KERNEL32.SetThreadExecutionState(0x80000000 | 0x00000001 | 0x00000002)
+        # Pin once, before anything is recorded or started: every game started below inherits the mask (no start-up
+        # window, nothing to undo), and the environment record reads back the mask actually applied.
+        if PERFORMANCE_CORE_MASK and not pin_self(PERFORMANCE_CORE_MASK):
+            parser.error(f"could not pin the batch to the performance cores (0x{PERFORMANCE_CORE_MASK:X}); refusing to "
+                         "measure on a hybrid CPU without it")
 
     batch = dt.datetime.now().strftime("%Y-%m-%d_%H%M%S") + (f"_{args.label}" if args.label else "")
     environment = environment_record() if not args.dry_run else {}

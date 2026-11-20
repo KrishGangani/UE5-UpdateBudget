@@ -22,7 +22,11 @@ un_bench.py` |
 	"Category": "",
 	"Description": "P01 UpdateBudget: ...",
 	"Modules": [ { "Name": "UpdateBudget", "Type": "Runtime", "LoadingPhase": "Default" } ],
-	"Plugins": [ { "Name": "UpdateBudgetCore", "Enabled": true } ]
+	"Plugins": [
+		{ "Name": "UpdateBudgetCore", "Enabled": true },
+		{ "Name": "SignificanceManager", "Enabled": true },
+		{ "Name": "AndroidFileServer", "Enabled": false }
+	]
 }
 ```
 
@@ -35,6 +39,8 @@ un_bench.py` |
 | `"Name": "UpdateBudget"` | The module name. It must match the folder `Source\UpdateBudget\` and the class name in `UpdateBudget.Build.cs`. Module names are unique per project (UBT keys them in one dictionary, `RulesAssembly.cs:199–206`) |
 | `"Type": "Runtime"` | Built into game **and** editor targets. *Alternative:* `Editor` (editor-only), which would break packaged builds that need this code |
 | `"LoadingPhase": "Default"` | The module loads at the normal point, after engine startup and before the first world exists. That is early enough for its UClasses (including world subsystems) to be registered before the map loads |
+| `"SignificanceManager"` (S3) | Baseline B3 needs Epic's Significance Manager, an engine plugin that is off by default (D2) |
+| `"AndroidFileServer": false` (S4) | An engine plugin that is **on by default** (`EnabledByDefault: true` in its `.uplugin`). Its editor half writes a settings block with a random `SecurityToken` into `DefaultEngine.ini` on the first editor run. The token only guards Android device file transfers, which this Windows-only project never uses, but a public repository shouldn't carry an engine-generated security token, so the plugin is disabled and the block deleted |
 | `"Plugins"` / `"UpdateBudgetCore"` | Explicitly enables the project's own plugin. The plugin is `EnabledByDefault`, so it would load anyway, but stating it here makes the dependency visible in one place and keeps it enabled even if that default changes |
 
 ### A2. `Source\UpdateBudget.Target.cs` and `UpdateBudgetEditor.Target.cs`: build targets
@@ -136,7 +142,7 @@ The build log line `[Adaptive Build] Excluded from UpdateBudgetCore unity file: 
 
 `DefaultGame.ini` sets the project name and description, plus (since S1) `+DirectoriesToAlwaysCook=(Path="/Engine/BasicShapes")`. The agent's cube mesh is referenced **only from C++** (`ConstructorHelpers`). No map references it, so without this line the cooker would leave it out and packaged agents would be invisible. `DefaultInput.ini` is Epic's template file, unchanged.
 
-**Engine-written block:** on the first editor run, the engine's `AndroidFileServerEditor` plugin appended an `[/Script/AndroidFileServerEditor.AndroidFileServerRuntimeSettings]` section, with a random `SecurityToken`, to `DefaultEngine.ini`. It configures Epic's Android device file server, does nothing on Windows, and was left as the engine wrote it.
+**Engine-written block (removed in S4):** on the first editor run, the engine's `AndroidFileServerEditor` plugin had appended an `[/Script/AndroidFileServerEditor.AndroidFileServerRuntimeSettings]` section, with a random `SecurityToken`, to `DefaultEngine.ini`. It configures Epic's Android device file server and does nothing on Windows. Since S4 the plugin is disabled in the `.uproject` (A1) and the block is gone, so the token is no longer written or committed. The earlier commits still contain the old token; it guards nothing here, because no Android build of this project exists.
 
 ### A8. `Tools\build.bat`, `smoke_game.bat`, `package.bat`
 
@@ -305,7 +311,7 @@ The build log line `[Adaptive Build] Excluded from UpdateBudgetCore unity file: 
 | `GameUserSettings.ini` deleted before each run | It can override VSync and frame caps at startup (`01b` §4) |
 | Interleaving | The config order **rotates each round** (B0,B1 / B1,B0 / …), so laptop thermal drift doesn't systematically favour one configuration |
 | Names | `<batch>_<Config>[_W<work>]_N<agents>_r<run>`, with `<batch>` = `YYYY-MM-DD_HHMMSS[_label]`. **Raw files are never overwritten** (`unique_path` raises). The S2 review found that date-only names let a second batch on the same day silently replace the first |
-| Priming run | One discarded run before the batch warms file, driver and PSO caches, so the first measured run isn't the only cold one (S2 review). Use an **even** `--runs` with two configs so each leads equally often |
+| Priming run | One discarded run before the batch warms file, driver and PSO caches, so the first measured run isn't the only cold one (S2 review). The number of runs per combination is a multiple of the number of configs, so with the rotation each config leads equally often (E5) |
 | Artefact collection | Only files written **after this run started** are taken: the CSV, the per-agent report, and the log, whose modification time is checked so a run that never started can't inherit the previous log (S2 review). Analysis errors are caught per run. **The manifest is rewritten after every run**, so a crash loses nothing |
 | Timeout | `warmup + capture + 180 s`; a hung run is recorded (`exit_code: null`) instead of hanging the batch |
 | Failure rule | A run fails if it has a non-zero exit, a timeout, no or partial capture, a missing log, log errors, or an analysis error. Failed runs are listed as **ATTENTION** and the script exits non-zero. Each run's **PSO events** are counted, so shader-compile noise is visible |
@@ -371,3 +377,87 @@ Two baselines that a competent team would write without UpdateBudget. They exist
 | Line | Why |
 |---|---|
 | `/** The spawned agents, in spawn order. Append-only: an index stays valid for the world's lifetime … */ const TArray<TObjectPtr<AUBDemoAgent>>& GetAgents() const` | A contract that another class relies on is **written where the data lives**, not only where it's used (altitude audit). Destroyed agents stay in the list as invalid entries; every user checks `IsValid()` |
+
+---
+
+## Part E · Step S4: the scheduling policy, and its tests
+
+The policy is plain C++: no UObject, no world, no engine tick. It is given numbers (deadlines, a time, a budget) and a function that runs one client, so every rule can be tested with fake clients and fake costs (02 §4.1). The subsystem that feeds it real clients arrives in S5.
+
+### E1. `UpdateBudgetScheduler.h` (plugin, public)
+
+| Line(s) | What, why, and what breaks if it changes |
+|---|---|
+| `#include "Containers/Array.h"`, `"Containers/ArrayView.h"`, `"Templates/Function.h"` | Only what the header uses (`TArray`, `TConstArrayView`, `TFunctionRef`). No `CoreMinimal.h`, no `UObject` headers: the policy has nothing to do with reflection, which keeps it cheap to include and easy to test |
+| `#define UE_API UPDATEBUDGETCORE_API` … `#undef UE_API` | The same export pattern as the component (A6, 5.8 convention): each exported function is marked, and the short name is undefined at the end so it can't leak into files that include this one |
+| `struct FBudgetClientState { double Deadline = 0.0; int32 CategoryIndex = 0; };` | **The hot data.** A dense array of these is all the policy reads, so the scheduling loop touches no UObject memory (H5). `double`, because world time is `double` in 5.x and seconds since start lose float precision after a few hours. Only the two fields the policy reads exist; `LastUpdateTime` and `MaxStaleness` come in S5/S6 with the code that sets them (02 §4.1) |
+| `struct FBudgetFrameStats { SpentMs, Runs, MandatoryRuns, Deferred, bOverBudget }` | One frame's outcome, returned by value (five fields, no allocation). `MandatoryRuns` and `bOverBudget` are what SC1 needs: frames where mandatory work forced an overrun are counted separately. `Deferred` shows how much work waited |
+| `using FRunClient = TFunctionRef<double(int32 ClientIndex)>;` | **How the policy runs a client without knowing what a client is.** `TFunctionRef` is a non-owning reference to any callable: no heap allocation, no copy, only valid during the call (06 §22). The callable returns the measured cost in ms: the subsystem times the real update, and tests return made-up costs |
+| `explicit FUpdateBudgetScheduler(int32 NumCategories = 1, double InitialCostMs = 0.005, double SmoothingAlpha = 0.2)` | `explicit` stops an `int` silently converting into a scheduler. **0.005 ms** is about one demo update on this machine (09, S2-f: about 5.2 µs), so the first frame's prediction is realistic. **0.2** is the design's smoothing weight (02 §7) |
+| `Run(TConstArrayView<FBudgetClientState> Clients, double NextFrameTime, double BudgetMs, FRunClient RunClient)` | A **view**, not a copy: the subsystem's array is read in place. `NextFrameTime` = now + this frame's delta (02 §6): "would this client be late if it waited one frame?" needs the time of the next chance to run |
+| `GetPredictedCostMs(CategoryIndex)` | Read-only access for tests and, later, the debug view |
+| `static double SanitiseCostMs(double)` (private) | **Every** cost that enters a prediction passes here: the measured ones in `Run` and the starting one in the constructor (simplify, altitude angle: the constructor was a second way in for NaN or infinity). Negative and non-finite values count as 0 |
+| `ClampCategory(...)` (private, inline) | An index the scheduler doesn't have falls back to category 0, so a settings change can never index out of range |
+| `TArray<int32> Order;` | The sort buffer is a **member**, reused every frame. After the first frame (or when N grows) `SetNumUninitialized` reuses the same memory, so the steady state allocates nothing |
+
+### E2. `UpdateBudgetScheduler.cpp`
+
+| Line(s) | What, why, and what breaks if it changes |
+|---|---|
+| Constructor: `Alpha(FMath::Clamp(SmoothingAlpha, 0.0, 1.0))`; `PredictedCostMs.Init(SanitiseCostMs(InitialCostMs), FMath::Max(1, NumCategories))` | Bad arguments are made safe instead of producing negative or NaN predictions or an empty array. `Init(Value, Count)` fills the array with `Count` copies |
+| `Order.SetNumUninitialized(Clients.Num(), EAllowShrinking::No);` then `Order[Index] = Index` | Sizes the buffer without zero-filling (every slot is written on the next line) and without giving memory back when N shrinks |
+| `const FBudgetClientState* const State = Clients.GetData();` then `Order.Sort([State](int32 A, int32 B) { … DeadlineA < DeadlineB \|\| (DeadlineA == DeadlineB && A < B); })` | **Earliest deadline first.** One O(N log N) sort per frame (v1, 02 §12 item 6; Phase 8 measures it at N = 4,000).<br>**Raw pointer reads** (simplify, efficiency angle): every index is in [0, N) by construction, so the view's per-access range check, which is compiled into Development builds, only added cost. That was about 15% of the sort time, roughly 45–75 µs per frame at N = 4,000 on a clang copy of UE's introsort; to be confirmed in the MSVC build in Phase 8. Each deadline is now read once per comparison.<br>**Ties are broken by index**, because `TArray::Sort` is not stable: without it, two clients with the same deadline could swap places between runs and break determinism |
+| `while (NumMandatory < Order.Num() && Clients[Order[NumMandatory]].Deadline < NextFrameTime) ++NumMandatory;` | Because the order is sorted, **the mandatory clients are exactly a prefix**: one sort gives both sets. Counted **before** anything runs, because `RunClient` moves the deadline of the client it updates. The test is `<`, not `<=`: a client due exactly at the next frame can still run on time then |
+| `if (Position >= NumMandatory && Stats.SpentMs + PredictedCostMs[Category] > BudgetMs) break;` | **The budget cut-off.** Don't start an update that is predicted not to fit. It is `break`, not `continue`: skipping one client to run a cheaper one with a *later* deadline would break deadline order. Mandatory clients skip this test, so they always run (no starvation) |
+| `const double CostMs = SanitiseCostMs(RunClient(ClientIndex));` | Runs the client. A negative measured cost (a clock oddity) counts as 0 rather than *giving back* budget. **A non-finite one counts as 0 too** (code review): `FMath::Max(0.0, NaN)` is NaN, a NaN prediction would stay NaN for good, and every later `Spent + NaN > Budget` is false, which would silently switch the budget off |
+| `PredictedCostMs[Category] = FMath::Lerp(PredictedCostMs[Category], CostMs, Alpha);` | **The moving average**: move a fraction α of the way towards the newest measurement. `FMath::Lerp(A, B, α)` is exactly `A + α · (B − A)` (`Math/UnrealMathUtility.h:1123–1126`), the same as `(1 − α) · old + α · new` with one multiply, so the name now says what it does (simplify, reuse angle). With α = 0.2 a step change is about 89% absorbed after 10 updates (1 − 0.8¹⁰). Mandatory runs also teach the prediction |
+| `Stats.MandatoryRuns = NumMandatory;` | Set once: the loop only ever stops at an optional client, so every mandatory client has run. A per-iteration counter would always end equal to `NumMandatory` (simplify) |
+| `Stats.Deferred = Clients.Num() - Stats.Runs; Stats.bOverBudget = Stats.SpentMs > BudgetMs;` | Everything not run waits for a later frame. Over budget is a fact about the frame, whatever caused it |
+
+### E3. `Private\Tests\UpdateBudgetSchedulerTests.cpp`
+
+| Part | What it proves |
+|---|---|
+| `#if WITH_DEV_AUTOMATION_TESTS` … `#endif` | Tests compile into Development builds and disappear from Test and Shipping (`UEBuildTarget.cs:6316`), so they cost a shipped game nothing |
+| `constexpr EAutomationTestFlags Flags = EditorContext \| ClientContext \| ProductFilter;` | **Where** a test may run (editor and game) and **which group** it belongs to (project tests). The macro refuses at compile time a test without exactly one filter flag (`AutomationTest.h:4127–4133`) |
+| `IMPLEMENT_SIMPLE_AUTOMATION_TEST(FClass, "UpdateBudget.Scheduler.Name", Flags)` + `bool FClass::RunTest(const FString&)` | Declares a test class and registers it under a dotted name, which is what `Automation RunTests UpdateBudget.Scheduler` filters on. `TestEqual` / `TestTrue` record a failure and keep going, so one run reports every broken rule |
+| `NoClients` | Zero clients: nothing runs, nothing breaks, no over-budget flag |
+| `DeadlineOrder` | Five clients with a tie: run order is `1, 3, 4, 2, 0`, earliest deadline first, the tie broken by index |
+| `BudgetCutOff` | Ten 0.1 ms clients and a 0.45 ms budget: exactly the four earliest run, 0.4 ms spent, six deferred, not over budget |
+| `MandatoryBeatsBudget` | Five clients all due before the next frame and a budget for one: all five run, and the overrun is reported |
+| `ZeroBudget` | A budget of 0 still runs every mandatory client, most overdue first, and nothing else |
+| `CostPrediction` | One step of the moving average is exact (1.0 → 0.8); a steady cost is learned (error far below 10⁻⁹ after 100 frames); a negative measurement counts as 0; **a NaN measurement leaves the prediction and the spent time finite, and the budget cut-off still works on the next frames** (`std::numeric_limits<double>::quiet_NaN()`, because `TNumericLimits` has no NaN in 5.8) |
+| `CategoryFallback` | An unknown category reads and teaches category 0, and nothing crashes |
+| `NoStarvation` | **The guarantee itself, under real overload**, simulated: 200 clients (max staleness 0 s, 0.1 s and 0.5 s) for 600 fixed 60 Hz frames.<br>**The overload:** a 0.3 ms budget at 0.01 ms per update. The 20 near clients take 0.2 ms, leaving room for 10 optional updates per frame against a demand of about 16.7 (80/6 + 100/30). The code review found that the first version (0.5 ms) never actually overloaded, so the test now **asserts that mid/far clients were forced to run**.<br>**The checks:** no client ever waits longer than its max staleness, or one frame when that is shorter; every client is updated; near clients run every frame; and every frame that ran optional work stayed inside the budget.<br>**Why the bound holds:** a client becomes mandatory on the first frame where waiting would make it late. On the previous frame it was not yet due, so it always runs at or before its deadline |
+
+### E4. `Tools\run_tests.bat`
+
+| Line | Why |
+|---|---|
+| `UnrealEditor-Cmd.exe "<project>" -ExecCmds="Automation RunTests %FILTER%;Quit"` | The automation commands are parsed in `AutomationCommandline.cpp` (`RunTests` at :610, `Quit` at :726). `Quit` waits until the test queue is empty, then exits with **a non-zero code if any test failed** (:495–504, the log line `TEST COMPLETE. EXIT CODE`). So the script's exit code is the verdict |
+| `-unattended -nullrhi -nosound -nosplash -nopause` | No dialogs, no GPU, no audio: pure logic tests need none of them, and they run unattended through the job queue |
+| `-ReportExportPath="…\Saved\Automation\Reports"` | Writes a JSON report (`AutomationControllerManager.cpp:233`) into the gitignored `Saved\` folder; the results are copied into 09. The older name `-ReportOutputPath=` still works but logs a deprecation warning (`:213–219`), which the first S4 run showed |
+
+### E5. `Tools\run_bench.py`: changes made in S3/S4
+
+| Part | What, why |
+|---|---|
+| `performance_core_mask()` | Asks Windows which logical CPUs belong to the **performance cores**: `GetLogicalProcessorInformationEx(RelationProcessorCore)` returns one record per physical core, with an `EfficiencyClass` byte (offset 9) and a group affinity mask (offset 32). P-cores have the higher class. On this i7-14650HX the result is `0xFFFF`: 8 P-cores × 2 hardware threads = logical CPUs 0–15. It returns `None` on a non-hybrid CPU, so the script still runs anywhere |
+| `KERNEL32 = ctypes.WinDLL("kernel32")` with its prototypes, set once behind `sys.platform == "win32"` | One place for every Windows call. `restype`/`argtypes` are declared, so 64-bit handles and masks aren't truncated by ctypes' default `int`. Off Windows, `KERNEL32` is `None` and the pinning is skipped |
+| `pin_self(mask)`, called once in `main()` before anything is recorded or started | `SetProcessAffinityMask(GetCurrentProcess(), mask)`. **Every process started afterwards inherits the mask from its first instruction** (simplify, altitude angle; verified on this machine: a child of a process pinned to `0xFFFF` reports `0xffff`). This replaced pinning each game after `Popen`, which left a start-up window and needed a per-run failure state. If the pin fails on a hybrid CPU, the batch refuses to start |
+| `applied_mask()` | Reads back the mask Windows actually applied (`GetProcessAffinityMask`), so the environment record states what happened, not what was asked for |
+| `EXE` = `Build\Windows\UpdateBudget\Binaries\Win64\UpdateBudget.exe` | The **real** game executable, launched directly. The packaged bootstrap one folder up only starts this one. Launching it directly makes the game a direct child, so its **exit code is real** and a hung or interrupted run is always killed (`taskkill /T` in a `finally` block). The first pinned version used `cmd /c start /wait /affinity`, which **always returns 0**. P03 found this while testing the same idea, and it would have hidden every failed run from `is_failure` |
+| `"cpu_affinity"` in the environment record | The mask applied to the whole batch, read back after pinning. Every run of the batch inherits it |
+| `MIN_RUNS = 4`; `--runs` default `math.ceil(MIN_RUNS / len(configs)) * len(configs)` | The smallest multiple of the number of configs that is at least 4: 4 for B0–B3, 4 for two configs, 5 with UB. With the rotation, every config sits in every order position equally often. A `--runs` that isn't a multiple prints a warning (code review: the first version gave a one-config batch a single run). The rule is stated once, in the `--runs` help (built from `MIN_RUNS`) and `Benchmarks/README.md`; the module docstring points there |
+| `SetThreadExecutionState(ES_CONTINUOUS \| ES_SYSTEM_REQUIRED \| ES_DISPLAY_REQUIRED)` | While the batch process lives, Windows keeps the display and system awake, as it does for a video player. A locked or occluded desktop could throttle a windowed game's presentation. **No power setting is changed**, and the request ends with the process |
+
+### E6. `Tools\analyse_baselines.py`
+
+| Part | What, why |
+|---|---|
+| Reads the batch manifest, then each run's raw CSV through `csv_stats.load_capture` | The same loader as the summaries; raw files are never modified. Unfinished captures are skipped. **Per-run `GameThreadTime` and `UpdatesRun` statistics are taken from the manifest**, which `run_bench.py` computed with the same `csv_stats` code, so the summary and the analysis can't drift apart (simplify, reuse angle; bit-identical on all 64 runs). The CSV is read only for what the manifest doesn't hold: the per-frame series and the driver columns, through `csv_stats.column_values` and `csv_stats.summarize` |
+| Groups by `(config, work, agents)`, then re-keys by `(config, N)` | The same key as `run_bench.py`'s summary, so different workloads are never pooled (code review). A batch with several workloads is refused, after which the workload is the same everywhere and the tables loop over `(config, N)` directly. `table()` and `col()` build every header, separator and cell, so a column count can't get out of step with its separator |
+| **H1** table: B0 − B1 per run, paired **by run index** | Runs of the same round ran next to each other, so pairing them cancels slow drift. Pairing is by the run number both configs have, not by list position: a skipped run would otherwise shift every later pair (code review) |
+| **H4** table: autocorrelation of `UpdatesRun` at lags 6 and 30, and max / median | At the fixed 60 Hz step, lag 6 = 0.1 s and lag 30 = 0.5 s, the two band intervals. Values near 1 mean the load repeats with that period: agents given the same interval at the same moment stay in phase |
+| **H6** table: `UBBaseline/GameThread/Retune` median and p99, interval changes per frame | The baselines' own re-tune cost. The tick manager's cooling-down list cost is inside `GameThreadTime`, not in this column |
+| Optional drift check (`split_round`) | Rounds 1..split against the later rounds: shows whether the machine itself changed during a batch |

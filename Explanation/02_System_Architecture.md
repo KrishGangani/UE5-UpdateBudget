@@ -74,7 +74,7 @@ D:\UNREAL PORTFOLIO\P01_UpdateBudget\Tools\                  ← Python stats + 
 | Class | Kind / base | Responsibility | Why it exists, and what we rejected |
 |---|---|---|---|
 | `FUpdateBudgetScheduler` | Plain C++ struct (no UObject) | The **policy**: given client states, the time, the budget and a "run client *i*" callback, it decides who runs and returns frame stats | Makes the algorithm **unit-testable with fake clients and fake costs, without a world**. *Rejected:* logic inside the subsystem, which can only be tested in a running world |
-| `FBudgetClientState` | Plain struct | The hot data per client: `LastUpdateTime`, `Deadline`, `MaxStaleness`, `CategoryIndex` | The per-frame loop walks this dense array and touches no UObject memory (H5) |
+| `FBudgetClientState` | Plain struct | The hot data per client. S4 adds the two fields the policy reads, `Deadline` and `CategoryIndex`; S5/S6 add `LastUpdateTime` and `MaxStaleness` when the subsystem starts computing deadlines (fields arrive with the code that uses them) | The per-frame loop walks this dense array and touches no UObject memory (H5) |
 | `UUpdateBudgetSubsystem` | `UTickableWorldSubsystem` | The **mechanism**: registry, significance refresh, owning the tick function, running the scheduler, telemetry, mode switching | Its lifetime is the world. Its own `Tick` runs after `TG_PostPhysics` (`01b` §2), which is the right moment to publish one frame's complete telemetry. Scheduling uses the separate `TG_PrePhysics` tick function below. *Rejected:* a manager Actor (can be deleted or duplicated); `UGameInstanceSubsystem` (outlives worlds) |
 | `FUpdateBudgetTickFunction` | USTRUCT deriving `FTickFunction`, with `WithCopy = false` | Calls `Subsystem->RunFrame(DeltaTime)` in **`TG_PrePhysics`** | `UTickableWorldSubsystem` ticks after `TG_PostPhysics` and can't choose a group (`01b` §2). Mass uses this same pattern ✔ |
 | `UBudgetedUpdateComponent` | `UActorComponent` | The client. It holds the category, registry index and last update time, and declares `virtual void OnBudgetedUpdate(float DeltaSeconds)`. It also has a **native-tick path** for the baselines. It **owns the time contract**: `DeltaSeconds` = world time since its previous update (0 on the first), measured the same way in every mode; the engine's tick `DeltaTime` is not forwarded | A component, not an interface: it must hold data and attach to any actor, Blueprint actors included. *Rejected:* an interface (every class re-implements the bookkeeping); a per-actor delegate (binding plus indirect-call cost in the hot loop) |
@@ -150,7 +150,7 @@ sequenceDiagram
   TF->>S: RunFrame(DeltaTime)
   S->>S: 1. apply deferred adds/removes, drop invalid entries
   S->>S: 2. significance → MaxStaleness → Deadline (dense loop)
-  S->>P: 3. Run(States, Now, NextFrameTime, Budget, RunClient)
+  S->>P: 3. Run(States, NextFrameTime, BudgetMs, RunClient)
   P->>P: mandatory = Deadline < NextFrameTime
   loop mandatory, then earliest deadline first while budget allows
     P->>S: RunClient(i)
@@ -165,13 +165,16 @@ sequenceDiagram
 ### Policy, in code-sized pseudocode (the real code mirrors this)
 
 ```text
-mandatory = { i : Deadline[i] < NextFrameTime }        // waiting a frame would break the bound
-for i in mandatory:          Spent += RunClient(i)     // always; may overrun → counted
-rest = others sorted by Deadline ascending              // v1: full sort; Phase 8 may replace with data
-for i in rest:
-    if Spent + Predicted[Category[i]] > Budget: break   // don't start work that won't fit
-    Spent += RunClient(i); update Predicted (EWMA)       // like the ABA's smoothed work-unit cost
+Order = all clients sorted by (Deadline, index)            // v1: full sort; Phase 8 may replace it with data
+NumMandatory = count of the prefix with Deadline < NextFrameTime   // waiting a frame would break the bound
+for k, i in Order:
+    if k >= NumMandatory and Spent + Predicted[Category[i]] > Budget: break   // don't start work that won't fit
+    Cost = RunClient(i)                                     // measured; negative or non-finite counts as 0
+    Predicted[Category[i]] += Alpha * (Cost - Predicted)    // EWMA, like the ABA's smoothed work-unit cost
+    Spent += Cost                                           // mandatory runs may overrun the budget: counted
 ```
+
+One sort gives both sets: after sorting, the mandatory clients are exactly the prefix due before the next frame, so mandatory clients also run most-overdue first. The code is `FUpdateBudgetScheduler::Run` (S4, 05 Part E).
 
 `NextFrameTime = Now + DeltaTime`. The last frame's delta is used as the estimate. In fixed-step runs it is exact.
 

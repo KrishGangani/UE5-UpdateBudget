@@ -1,0 +1,5023 @@
+{
+  "environment": {
+    "date": "2026-11-21T00:21:19",
+    "engine": "5.8.4 (CL 58902052)",
+    "build_config": "Development (packaged)",
+    "compiler": "MSVC 14.44.35229, Windows SDK 10.0.22621.0",
+    "cpu": "Intel(R) Core(TM) i7-14650HX",
+    "gpus": "Intel(R) UHD Graphics (driver 32.0.101.7088); NVIDIA GeForce RTX 5070 Laptop GPU (driver 32.0.16.1047)",
+    "ram_gb": "31.6",
+    "os": "Microsoft Windows 11 Home Single Language build 26200",
+    "power_plan": "Power Scheme GUID: 6fecc5ae-f350-48a5-b669-b472cb895ccf  (Turbo)",
+    "on_ac_power": true,
+    "resolution": "1280x720 windowed, default scalability",
+    "common_args": "-windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd"
+  },
+  "runs": [
+    {
+      "name": "2026-11-21_002119_baseline_B0_N100_r0_prime",
+      "config": "B0",
+      "agents": 100,
+      "work": null,
+      "run": 0,
+      "priming": true,
+      "exit_code": 0,
+      "wall_seconds": 20.2,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=100 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B0_N100_r0_prime",
+      "capture": "2026-11-21_002119_baseline_B0_N100_r0_prime.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 1.8966298611111112,
+          "min": 1.2914,
+          "median": 1.75385,
+          "p95": 3.0522499999999217,
+          "p99": 4.046803,
+          "max": 5.2735
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 4.043141722222222,
+          "min": 2.7379,
+          "median": 3.8179999999999996,
+          "p95": 5.74114,
+          "p99": 6.330907999999997,
+          "max": 8.3519
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.038071861111111,
+          "min": 2.9796,
+          "median": 3.81015,
+          "p95": 5.693774999999998,
+          "p99": 6.232139999999999,
+          "max": 7.7348
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.4503519444444444,
+          "min": 2.9179,
+          "median": 3.2893,
+          "p95": 4.661119999999999,
+          "p99": 5.136507,
+          "max": 5.6856
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 100.0,
+          "min": 100.0,
+          "median": 100.0,
+          "p95": 100.0,
+          "p99": 100.0,
+          "max": 100.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B0_N100_r0_prime_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B0_N100_r1",
+      "config": "B0",
+      "agents": 100,
+      "work": null,
+      "run": 1,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 21.2,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=100 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B0_N100_r1",
+      "capture": "2026-11-21_002119_baseline_B0_N100_r1.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 1.9836188611111112,
+          "min": 1.2141,
+          "median": 1.9037,
+          "p95": 2.6214999999999993,
+          "p99": 4.046913999999999,
+          "max": 5.4363
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 4.161132527777778,
+          "min": 2.1694,
+          "median": 3.9555,
+          "p95": 5.862249999999999,
+          "p99": 6.980699999999998,
+          "max": 8.8922
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.153853722222222,
+          "min": 2.4755,
+          "median": 3.9589499999999997,
+          "p95": 5.84023,
+          "p99": 6.85111199999999,
+          "max": 9.5281
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.5112243333333333,
+          "min": 2.9047,
+          "median": 3.31215,
+          "p95": 4.798425,
+          "p99": 5.381721,
+          "max": 7.0744
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 100.0,
+          "min": 100.0,
+          "median": 100.0,
+          "p95": 100.0,
+          "p99": 100.0,
+          "max": 100.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B0_N100_r1_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B1_N100_r1",
+      "config": "B1",
+      "agents": 100,
+      "work": null,
+      "run": 1,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 22.6,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=100 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B1_N100_r1 -ExecCmds=\"tick.AllowBatchedTicks 1\"",
+      "capture": "2026-11-21_002119_baseline_B1_N100_r1.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 2.397769277777778,
+          "min": 1.3054,
+          "median": 2.117,
+          "p95": 4.25245,
+          "p99": 5.459812,
+          "max": 21.9928
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 4.42854425,
+          "min": 1.5809,
+          "median": 4.15715,
+          "p95": 6.174524999999998,
+          "p99": 7.1435149999999945,
+          "max": 21.1908
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.392736111111112,
+          "min": 2.5751,
+          "median": 4.14495,
+          "p95": 6.140039999999999,
+          "p99": 7.048026999999999,
+          "max": 12.0565
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.60175475,
+          "min": 2.9662,
+          "median": 3.4448,
+          "p95": 4.781745,
+          "p99": 5.332022999999992,
+          "max": 6.4989
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 100.0,
+          "min": 100.0,
+          "median": 100.0,
+          "p95": 100.0,
+          "p99": 100.0,
+          "max": 100.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B1_N100_r1_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B2_N100_r1",
+      "config": "B2",
+      "agents": 100,
+      "work": null,
+      "run": 1,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 22.7,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=100 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B2_N100_r1 -UBBaseline=B2",
+      "capture": "2026-11-21_002119_baseline_B2_N100_r1.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 1.6330543888888889,
+          "min": 1.0828,
+          "median": 1.58425,
+          "p95": 2.0706350000000002,
+          "p99": 2.5079109999999996,
+          "max": 6.283
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 4.496249388888889,
+          "min": 1.4454,
+          "median": 4.3177,
+          "p95": 6.1942450000000004,
+          "p99": 6.956226999999999,
+          "max": 40.4925
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.488344944444445,
+          "min": 2.7023,
+          "median": 4.311450000000001,
+          "p95": 6.16703,
+          "p99": 6.920412,
+          "max": 40.2269
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.86150325,
+          "min": 3.1196,
+          "median": 3.7068,
+          "p95": 5.1497,
+          "p99": 5.689408,
+          "max": 6.5768
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 41.91,
+          "min": 27.0,
+          "median": 41.0,
+          "p95": 53.0,
+          "p99": 62.0,
+          "max": 63.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 100.36111183333334,
+          "min": 100.0,
+          "median": 100.0,
+          "p95": 100.0,
+          "p99": 116.6667,
+          "max": 116.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B2_N100_r1_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B3_N100_r1",
+      "config": "B3",
+      "agents": 100,
+      "work": null,
+      "run": 1,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 23.8,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=100 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B3_N100_r1 -UBBaseline=B3",
+      "capture": "2026-11-21_002119_baseline_B3_N100_r1.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 1.6312334444444445,
+          "min": 1.1895,
+          "median": 1.57155,
+          "p95": 2.1013100000000002,
+          "p99": 2.3955409999999993,
+          "max": 4.8177
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 4.6821941944444445,
+          "min": 2.2498,
+          "median": 4.48865,
+          "p95": 6.415209999999999,
+          "p99": 7.041916,
+          "max": 12.3824
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.677166361111111,
+          "min": 2.9181,
+          "median": 4.48145,
+          "p95": 6.399719999999999,
+          "p99": 6.992744999999999,
+          "max": 12.3935
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.019471805555556,
+          "min": 3.2645,
+          "median": 3.85825,
+          "p95": 5.410654999999999,
+          "p99": 5.885256999999994,
+          "max": 6.6462
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 41.91,
+          "min": 27.0,
+          "median": 41.0,
+          "p95": 53.0,
+          "p99": 62.0,
+          "max": 63.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 100.36111183333334,
+          "min": 100.0,
+          "median": 100.0,
+          "p95": 100.0,
+          "p99": 116.6667,
+          "max": 116.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B3_N100_r1_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B0_N1000_r1",
+      "config": "B0",
+      "agents": 1000,
+      "work": null,
+      "run": 1,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 28.8,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=1000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B0_N1000_r1",
+      "capture": "2026-11-21_002119_baseline_B0_N1000_r1.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 5.952466944444445,
+          "min": 5.0609,
+          "median": 5.802350000000001,
+          "p95": 6.8914349999999995,
+          "p99": 7.442487999999998,
+          "max": 9.4454
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 5.964371833333334,
+          "min": 5.1281,
+          "median": 5.8291,
+          "p95": 6.8980049999999995,
+          "p99": 7.488657999999998,
+          "max": 9.7006
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 3.590709194444444,
+          "min": 2.9088,
+          "median": 3.50845,
+          "p95": 4.30701,
+          "p99": 4.890911999999988,
+          "max": 6.6874
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.653887833333333,
+          "min": 3.0377,
+          "median": 3.54975,
+          "p95": 4.35315,
+          "p99": 5.054471999999993,
+          "max": 5.8704
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 1000.0,
+          "min": 1000.0,
+          "median": 1000.0,
+          "p95": 1000.0,
+          "p99": 1000.0,
+          "max": 1000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B0_N1000_r1_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B1_N1000_r1",
+      "config": "B1",
+      "agents": 1000,
+      "work": null,
+      "run": 1,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 26.5,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=1000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B1_N1000_r1 -ExecCmds=\"tick.AllowBatchedTicks 1\"",
+      "capture": "2026-11-21_002119_baseline_B1_N1000_r1.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 5.492497722222222,
+          "min": 4.765,
+          "median": 5.34045,
+          "p95": 6.396744999999999,
+          "p99": 6.844703999999999,
+          "max": 9.0973
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 5.50484975,
+          "min": 4.7048,
+          "median": 5.37455,
+          "p95": 6.396619999999999,
+          "p99": 6.810023999999999,
+          "max": 9.6752
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 3.584339416666667,
+          "min": 2.8493,
+          "median": 3.51825,
+          "p95": 4.241935,
+          "p99": 4.830268999999998,
+          "max": 6.0606
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.7701471944444442,
+          "min": 3.1582,
+          "median": 3.66315,
+          "p95": 4.502939999999997,
+          "p99": 5.172331999999997,
+          "max": 6.1768
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 1000.0,
+          "min": 1000.0,
+          "median": 1000.0,
+          "p95": 1000.0,
+          "p99": 1000.0,
+          "max": 1000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B1_N1000_r1_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B2_N1000_r1",
+      "config": "B2",
+      "agents": 1000,
+      "work": null,
+      "run": 1,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 23.4,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=1000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B2_N1000_r1 -UBBaseline=B2",
+      "capture": "2026-11-21_002119_baseline_B2_N1000_r1.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 2.353266111111111,
+          "min": 1.4741,
+          "median": 2.2619,
+          "p95": 3.1894949999999995,
+          "p99": 3.8442069999999977,
+          "max": 6.8822
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 4.720578777777778,
+          "min": 2.6786,
+          "median": 4.5353,
+          "p95": 6.432734999999999,
+          "p99": 6.993752999999998,
+          "max": 13.1754
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.713569638888889,
+          "min": 2.5911,
+          "median": 4.5267,
+          "p95": 6.4307799999999995,
+          "p99": 6.945956999999999,
+          "max": 13.1834
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.087715694444444,
+          "min": 3.3265,
+          "median": 3.9347,
+          "p95": 5.425989999999999,
+          "p99": 5.945403,
+          "max": 6.56
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 143.72583333333333,
+          "min": 57.0,
+          "median": 130.0,
+          "p95": 251.0,
+          "p99": 403.0,
+          "max": 691.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 510.6157489722222,
+          "min": 483.3333,
+          "median": 500.0,
+          "p95": 583.3334,
+          "p99": 583.3334,
+          "max": 600.0001
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B2_N1000_r1_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B3_N1000_r1",
+      "config": "B3",
+      "agents": 1000,
+      "work": null,
+      "run": 1,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 23.4,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=1000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B3_N1000_r1 -UBBaseline=B3",
+      "capture": "2026-11-21_002119_baseline_B3_N1000_r1.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 2.403693305555555,
+          "min": 1.6281,
+          "median": 2.3047,
+          "p95": 3.192754999999999,
+          "p99": 3.9765079999999973,
+          "max": 8.5904
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 4.732163666666667,
+          "min": 2.9922,
+          "median": 4.53785,
+          "p95": 6.4183,
+          "p99": 7.065308999999993,
+          "max": 12.5248
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.724474305555555,
+          "min": 2.9887,
+          "median": 4.5293,
+          "p95": 6.38557,
+          "p99": 7.031356999999999,
+          "max": 8.945
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.085772777777778,
+          "min": 3.1838,
+          "median": 3.9254,
+          "p95": 5.441459999999999,
+          "p99": 5.977212,
+          "max": 6.5207
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 143.72583333333333,
+          "min": 57.0,
+          "median": 130.0,
+          "p95": 251.0,
+          "p99": 403.0,
+          "max": 691.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 510.6157489722222,
+          "min": 483.3333,
+          "median": 500.0,
+          "p95": 583.3334,
+          "p99": 583.3334,
+          "max": 600.0001
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B3_N1000_r1_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B0_N2000_r1",
+      "config": "B0",
+      "agents": 2000,
+      "work": null,
+      "run": 1,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 43.3,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=2000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B0_N2000_r1",
+      "capture": "2026-11-21_002119_baseline_B0_N2000_r1.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 9.682407111111111,
+          "min": 8.6746,
+          "median": 9.5985,
+          "p95": 10.506745,
+          "p99": 11.157933999999994,
+          "max": 13.0169
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 9.694675138888888,
+          "min": 8.8495,
+          "median": 9.61525,
+          "p95": 10.495869999999998,
+          "p99": 11.195338999999997,
+          "max": 13.471
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.810318777777778,
+          "min": 4.0291,
+          "median": 4.7589500000000005,
+          "p95": 5.47863,
+          "p99": 5.924026999999997,
+          "max": 8.0291
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.224972638888889,
+          "min": 2.8333,
+          "median": 3.1505,
+          "p95": 3.676465,
+          "p99": 4.151065999999996,
+          "max": 4.6207
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 2000.0,
+          "min": 2000.0,
+          "median": 2000.0,
+          "p95": 2000.0,
+          "p99": 2000.0,
+          "max": 2000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B0_N2000_r1_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B1_N2000_r1",
+      "config": "B1",
+      "agents": 2000,
+      "work": null,
+      "run": 1,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 40.5,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=2000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B1_N2000_r1 -ExecCmds=\"tick.AllowBatchedTicks 1\"",
+      "capture": "2026-11-21_002119_baseline_B1_N2000_r1.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 8.872274388888888,
+          "min": 8.1366,
+          "median": 8.7737,
+          "p95": 9.749830000000001,
+          "p99": 10.664353,
+          "max": 12.2897
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 8.886941333333333,
+          "min": 8.1203,
+          "median": 8.79515,
+          "p95": 9.72656,
+          "p99": 10.614018999999994,
+          "max": 12.6671
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.775013222222222,
+          "min": 4.0319,
+          "median": 4.709849999999999,
+          "p95": 5.4223099999999995,
+          "p99": 6.138959999999998,
+          "max": 7.9695
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.172513583333333,
+          "min": 2.808,
+          "median": 3.1167,
+          "p95": 3.580005,
+          "p99": 3.942897999999995,
+          "max": 5.3554
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 2000.0,
+          "min": 2000.0,
+          "median": 2000.0,
+          "p95": 2000.0,
+          "p99": 2000.0,
+          "max": 2000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B1_N2000_r1_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B2_N2000_r1",
+      "config": "B2",
+      "agents": 2000,
+      "work": null,
+      "run": 1,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 23.4,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=2000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B2_N2000_r1 -UBBaseline=B2",
+      "capture": "2026-11-21_002119_baseline_B2_N2000_r1.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 2.756198861111111,
+          "min": 1.8477,
+          "median": 2.6371,
+          "p95": 3.5874949999999988,
+          "p99": 5.234965999999984,
+          "max": 8.6289
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 4.720772472222222,
+          "min": 2.8353,
+          "median": 4.527,
+          "p95": 6.465294999999996,
+          "p99": 7.178660999999994,
+          "max": 11.4188
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.694090722222223,
+          "min": 2.8872,
+          "median": 4.5116499999999995,
+          "p95": 6.37334,
+          "p99": 6.959237999999999,
+          "max": 11.5066
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.044844138888888,
+          "min": 3.2516,
+          "median": 3.9006499999999997,
+          "p95": 5.37043,
+          "p99": 5.923243999999999,
+          "max": 6.6064
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 190.58416666666668,
+          "min": 100.0,
+          "median": 172.0,
+          "p95": 281.0,
+          "p99": 770.1399999999967,
+          "max": 1363.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 521.3657571666666,
+          "min": 500.0,
+          "median": 500.0,
+          "p95": 583.3334,
+          "p99": 600.0001,
+          "max": 916.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B2_N2000_r1_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B3_N2000_r1",
+      "config": "B3",
+      "agents": 2000,
+      "work": null,
+      "run": 1,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 23.4,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=2000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B3_N2000_r1 -UBBaseline=B3",
+      "capture": "2026-11-21_002119_baseline_B3_N2000_r1.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 2.85293225,
+          "min": 1.797,
+          "median": 2.7427,
+          "p95": 3.7354199999999995,
+          "p99": 5.632718999999992,
+          "max": 9.5346
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 4.708781027777778,
+          "min": 2.88,
+          "median": 4.52135,
+          "p95": 6.491625,
+          "p99": 7.173305999999997,
+          "max": 9.079
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.685803333333333,
+          "min": 2.9626,
+          "median": 4.511749999999999,
+          "p95": 6.383959999999999,
+          "p99": 6.973444999999999,
+          "max": 7.9683
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.042844388888889,
+          "min": 3.2598,
+          "median": 3.90035,
+          "p95": 5.386919999999999,
+          "p99": 5.875012999999997,
+          "max": 6.6752
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 190.58416666666668,
+          "min": 100.0,
+          "median": 172.0,
+          "p95": 281.0,
+          "p99": 770.1399999999967,
+          "max": 1363.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 521.3657571666666,
+          "min": 500.0,
+          "median": 500.0,
+          "p95": 583.3334,
+          "p99": 600.0001,
+          "max": 916.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B3_N2000_r1_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B0_N4000_r1",
+      "config": "B0",
+      "agents": 4000,
+      "work": null,
+      "run": 1,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 98.1,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=4000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B0_N4000_r1",
+      "capture": "2026-11-21_002119_baseline_B0_N4000_r1.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 23.546770416666668,
+          "min": 14.6797,
+          "median": 23.747,
+          "p95": 31.89094999999999,
+          "p99": 35.44283299999998,
+          "max": 42.045
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 23.5807805,
+          "min": 14.7481,
+          "median": 23.81395,
+          "p95": 31.855894999999997,
+          "p99": 35.46797699999999,
+          "max": 42.1134
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 9.546945416666667,
+          "min": 5.9288,
+          "median": 9.87605,
+          "p95": 12.602174999999999,
+          "p99": 14.315233999999993,
+          "max": 40.7404
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.467760777777778,
+          "min": 2.7775,
+          "median": 3.1708499999999997,
+          "p95": 4.504054999999999,
+          "p99": 9.91864899999999,
+          "max": 46.7572
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 4000.0,
+          "min": 4000.0,
+          "median": 4000.0,
+          "p95": 4000.0,
+          "p99": 4000.0,
+          "max": 4000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B0_N4000_r1_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B1_N4000_r1",
+      "config": "B1",
+      "agents": 4000,
+      "work": null,
+      "run": 1,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 98.9,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=4000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B1_N4000_r1 -ExecCmds=\"tick.AllowBatchedTicks 1\"",
+      "capture": "2026-11-21_002119_baseline_B1_N4000_r1.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 22.896604833333335,
+          "min": 13.2999,
+          "median": 23.9931,
+          "p95": 28.087834999999995,
+          "p99": 30.897640999999993,
+          "max": 38.721
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 22.93515411111111,
+          "min": 13.4502,
+          "median": 24.074350000000003,
+          "p95": 28.12521,
+          "p99": 30.891547999999982,
+          "max": 38.6298
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 9.86118488888889,
+          "min": 5.8431,
+          "median": 10.0046,
+          "p95": 11.864049999999999,
+          "p99": 13.587817,
+          "max": 16.06
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.2105095833333337,
+          "min": 2.8167,
+          "median": 3.1176000000000004,
+          "p95": 3.854244999999998,
+          "p99": 4.494160999999999,
+          "max": 6.1901
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 4000.0,
+          "min": 4000.0,
+          "median": 4000.0,
+          "p95": 4000.0,
+          "p99": 4000.0,
+          "max": 4000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B1_N4000_r1_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B2_N4000_r1",
+      "config": "B2",
+      "agents": 4000,
+      "work": null,
+      "run": 1,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 23.4,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=4000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B2_N4000_r1 -UBBaseline=B2",
+      "capture": "2026-11-21_002119_baseline_B2_N4000_r1.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 3.901906972222222,
+          "min": 1.8584,
+          "median": 3.49315,
+          "p95": 5.608064999999999,
+          "p99": 17.342958999999993,
+          "max": 24.2817
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 4.797986305555556,
+          "min": 2.8248,
+          "median": 4.24465,
+          "p95": 7.583834999999998,
+          "p99": 17.91473699999999,
+          "max": 24.3556
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.439351111111112,
+          "min": 2.8692,
+          "median": 4.2109,
+          "p95": 6.322709999999996,
+          "p99": 8.744016999999998,
+          "max": 10.8936
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.300292861111111,
+          "min": 2.8213,
+          "median": 3.2417,
+          "p95": 3.813219999999998,
+          "p99": 4.3634629999999985,
+          "max": 5.5449
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 260.68555555555554,
+          "min": 111.0,
+          "median": 209.0,
+          "p95": 281.0,
+          "p99": 2156.2699999999936,
+          "max": 3107.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 532.180580638889,
+          "min": 500.0,
+          "median": 516.6667,
+          "p95": 583.3334,
+          "p99": 600.0001,
+          "max": 600.0001
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B2_N4000_r1_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B3_N4000_r1",
+      "config": "B3",
+      "agents": 4000,
+      "work": null,
+      "run": 1,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 23.5,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=4000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B3_N4000_r1 -UBBaseline=B3",
+      "capture": "2026-11-21_002119_baseline_B3_N4000_r1.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 3.909901611111111,
+          "min": 1.7778,
+          "median": 3.60555,
+          "p95": 4.965289999999998,
+          "p99": 17.043605999999976,
+          "max": 24.8978
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 4.67463425,
+          "min": 2.7127,
+          "median": 4.21645,
+          "p95": 6.949949999999989,
+          "p99": 17.339276999999896,
+          "max": 25.6585
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.3254145,
+          "min": 3.0059,
+          "median": 4.173,
+          "p95": 5.474529999999998,
+          "p99": 8.311751,
+          "max": 13.9998
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.363077638888889,
+          "min": 2.79,
+          "median": 3.3304,
+          "p95": 3.8609199999999997,
+          "p99": 4.114076999999998,
+          "max": 4.4976
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 260.68555555555554,
+          "min": 111.0,
+          "median": 209.0,
+          "p95": 281.0,
+          "p99": 2156.2699999999936,
+          "max": 3107.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 532.180580638889,
+          "min": 500.0,
+          "median": 516.6667,
+          "p95": 583.3334,
+          "p99": 600.0001,
+          "max": 600.0001
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B3_N4000_r1_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B1_N100_r2",
+      "config": "B1",
+      "agents": 100,
+      "work": null,
+      "run": 2,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 23.5,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=100 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B1_N100_r2 -ExecCmds=\"tick.AllowBatchedTicks 1\"",
+      "capture": "2026-11-21_002119_baseline_B1_N100_r2.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 1.7881348055555555,
+          "min": 1.2688,
+          "median": 1.69415,
+          "p95": 2.3581799999999995,
+          "p99": 2.798124999999997,
+          "max": 4.9891
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 4.933997222222222,
+          "min": 2.3361,
+          "median": 4.87865,
+          "p95": 6.129505,
+          "p99": 6.667727999999999,
+          "max": 18.5686
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.927772805555556,
+          "min": 3.2589,
+          "median": 4.87605,
+          "p95": 6.1192150000000005,
+          "p99": 6.634013,
+          "max": 18.3553
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.2406545555555555,
+          "min": 3.2215,
+          "median": 4.26765,
+          "p95": 5.147755,
+          "p99": 5.534960999999999,
+          "max": 6.5637
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 100.0,
+          "min": 100.0,
+          "median": 100.0,
+          "p95": 100.0,
+          "p99": 100.0,
+          "max": 100.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B1_N100_r2_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B2_N100_r2",
+      "config": "B2",
+      "agents": 100,
+      "work": null,
+      "run": 2,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 25.8,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=100 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B2_N100_r2 -UBBaseline=B2",
+      "capture": "2026-11-21_002119_baseline_B2_N100_r2.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 1.616523972222222,
+          "min": 1.204,
+          "median": 1.58445,
+          "p95": 1.9724249999999999,
+          "p99": 2.2984949999999977,
+          "max": 6.5146
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 5.334848916666666,
+          "min": 2.0762,
+          "median": 5.33145,
+          "p95": 6.318809999999999,
+          "p99": 6.701662999999998,
+          "max": 11.7912
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 5.327596555555556,
+          "min": 3.2798,
+          "median": 5.3266,
+          "p95": 6.299334999999999,
+          "p99": 6.650209999999998,
+          "max": 7.4341
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.5585788888888885,
+          "min": 3.2657,
+          "median": 4.58985,
+          "p95": 5.331035,
+          "p99": 5.692586999999996,
+          "max": 6.6168
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 41.91,
+          "min": 27.0,
+          "median": 41.0,
+          "p95": 53.0,
+          "p99": 62.0,
+          "max": 63.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 100.36111183333334,
+          "min": 100.0,
+          "median": 100.0,
+          "p95": 100.0,
+          "p99": 116.6667,
+          "max": 116.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B2_N100_r2_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B3_N100_r2",
+      "config": "B3",
+      "agents": 100,
+      "work": null,
+      "run": 2,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 26.7,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=100 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B3_N100_r2 -UBBaseline=B3",
+      "capture": "2026-11-21_002119_baseline_B3_N100_r2.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 1.6695489444444445,
+          "min": 1.1438,
+          "median": 1.6302500000000002,
+          "p95": 2.0801949999999985,
+          "p99": 2.3695539999999986,
+          "max": 6.5964
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 5.525917555555555,
+          "min": 2.2294,
+          "median": 5.5741499999999995,
+          "p95": 6.4851399999999995,
+          "p99": 6.968307,
+          "max": 12.5164
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 5.518498805555556,
+          "min": 3.2058,
+          "median": 5.568849999999999,
+          "p95": 6.47851,
+          "p99": 6.888012,
+          "max": 8.4584
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.735349277777777,
+          "min": 3.442,
+          "median": 4.7653,
+          "p95": 5.461144999999999,
+          "p99": 5.969513999999999,
+          "max": 7.0259
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 41.91,
+          "min": 27.0,
+          "median": 41.0,
+          "p95": 53.0,
+          "p99": 62.0,
+          "max": 63.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 100.36111183333334,
+          "min": 100.0,
+          "median": 100.0,
+          "p95": 100.0,
+          "p99": 116.6667,
+          "max": 116.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B3_N100_r2_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B0_N100_r2",
+      "config": "B0",
+      "agents": 100,
+      "work": null,
+      "run": 2,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 25.7,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=100 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B0_N100_r2",
+      "capture": "2026-11-21_002119_baseline_B0_N100_r2.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 1.9641683888888888,
+          "min": 1.4173,
+          "median": 1.9763000000000002,
+          "p95": 2.438425,
+          "p99": 2.779139999999999,
+          "max": 6.683
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 5.393835916666667,
+          "min": 2.1074,
+          "median": 5.41185,
+          "p95": 6.497315,
+          "p99": 7.1155869999999934,
+          "max": 10.1024
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 5.386813805555556,
+          "min": 3.2617,
+          "median": 5.4108,
+          "p95": 6.44455,
+          "p99": 7.088757999999996,
+          "max": 8.3147
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.670133833333334,
+          "min": 3.3947,
+          "median": 4.70275,
+          "p95": 5.436534999999999,
+          "p99": 5.8419909999999975,
+          "max": 6.5233
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 100.0,
+          "min": 100.0,
+          "median": 100.0,
+          "p95": 100.0,
+          "p99": 100.0,
+          "max": 100.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B0_N100_r2_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B1_N1000_r2",
+      "config": "B1",
+      "agents": 1000,
+      "work": null,
+      "run": 2,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 32.8,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=1000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B1_N1000_r2 -ExecCmds=\"tick.AllowBatchedTicks 1\"",
+      "capture": "2026-11-21_002119_baseline_B1_N1000_r2.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 7.090201916666667,
+          "min": 4.3199,
+          "median": 7.45495,
+          "p95": 8.669485,
+          "p99": 9.491262999999998,
+          "max": 11.9675
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 7.109151777777778,
+          "min": 4.2783,
+          "median": 7.4597999999999995,
+          "p95": 8.67316,
+          "p99": 9.458922999999999,
+          "max": 12.0067
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.505735361111111,
+          "min": 2.7957,
+          "median": 4.57575,
+          "p95": 5.35877,
+          "p99": 5.823859999999999,
+          "max": 7.0176
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.017892194444444,
+          "min": 3.0665,
+          "median": 3.9854000000000003,
+          "p95": 4.875114999999999,
+          "p99": 5.247583999999998,
+          "max": 6.2427
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 1000.0,
+          "min": 1000.0,
+          "median": 1000.0,
+          "p95": 1000.0,
+          "p99": 1000.0,
+          "max": 1000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B1_N1000_r2_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B2_N1000_r2",
+      "config": "B2",
+      "agents": 1000,
+      "work": null,
+      "run": 2,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 25.7,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=1000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B2_N1000_r2 -UBBaseline=B2",
+      "capture": "2026-11-21_002119_baseline_B2_N1000_r2.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 2.4823274166666667,
+          "min": 1.467,
+          "median": 2.4143,
+          "p95": 3.453855,
+          "p99": 4.375920999999999,
+          "max": 6.1508
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 5.392323416666667,
+          "min": 2.5496,
+          "median": 5.45085,
+          "p95": 6.4142399999999995,
+          "p99": 6.854019,
+          "max": 14.801
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 5.384536499999999,
+          "min": 3.3508,
+          "median": 5.44885,
+          "p95": 6.398389999999999,
+          "p99": 6.833154999999996,
+          "max": 14.6278
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.578531138888889,
+          "min": 3.458,
+          "median": 4.61365,
+          "p95": 5.370025,
+          "p99": 5.801019999999999,
+          "max": 8.3687
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 143.72583333333333,
+          "min": 57.0,
+          "median": 130.0,
+          "p95": 251.0,
+          "p99": 403.0,
+          "max": 691.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 510.6157489722222,
+          "min": 483.3333,
+          "median": 500.0,
+          "p95": 583.3334,
+          "p99": 583.3334,
+          "max": 600.0001
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B2_N1000_r2_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B3_N1000_r2",
+      "config": "B3",
+      "agents": 1000,
+      "work": null,
+      "run": 2,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 25.8,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=1000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B3_N1000_r2 -UBBaseline=B3",
+      "capture": "2026-11-21_002119_baseline_B3_N1000_r2.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 2.5493212777777776,
+          "min": 1.4595,
+          "median": 2.4463,
+          "p95": 3.557269999999998,
+          "p99": 4.438580999999993,
+          "max": 7.8525
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 5.410782027777778,
+          "min": 3.0446,
+          "median": 5.47755,
+          "p95": 6.382815,
+          "p99": 6.696917,
+          "max": 11.55
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 5.400867138888889,
+          "min": 3.2656,
+          "median": 5.4742,
+          "p95": 6.365209999999999,
+          "p99": 6.702920999999999,
+          "max": 9.0288
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.5782000555555555,
+          "min": 3.3031,
+          "median": 4.60025,
+          "p95": 5.303525,
+          "p99": 5.666140999999999,
+          "max": 6.7138
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 143.72583333333333,
+          "min": 57.0,
+          "median": 130.0,
+          "p95": 251.0,
+          "p99": 403.0,
+          "max": 691.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 510.6157489722222,
+          "min": 483.3333,
+          "median": 500.0,
+          "p95": 583.3334,
+          "p99": 583.3334,
+          "max": 600.0001
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B3_N1000_r2_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B0_N1000_r2",
+      "config": "B0",
+      "agents": 1000,
+      "work": null,
+      "run": 2,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 34.9,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=1000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B0_N1000_r2",
+      "capture": "2026-11-21_002119_baseline_B0_N1000_r2.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 7.489977194444444,
+          "min": 4.652,
+          "median": 7.90185,
+          "p95": 9.199214999999999,
+          "p99": 10.586320999999996,
+          "max": 14.6233
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 7.508282888888889,
+          "min": 4.5604,
+          "median": 7.90175,
+          "p95": 9.266879999999999,
+          "p99": 10.649236999999983,
+          "max": 14.8207
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.39718575,
+          "min": 2.9329,
+          "median": 4.4807500000000005,
+          "p95": 5.1586549999999995,
+          "p99": 5.838330999999999,
+          "max": 8.4077
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.169693666666666,
+          "min": 3.0999,
+          "median": 4.1793499999999995,
+          "p95": 4.909005,
+          "p99": 5.285195999999996,
+          "max": 6.6283
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 1000.0,
+          "min": 1000.0,
+          "median": 1000.0,
+          "p95": 1000.0,
+          "p99": 1000.0,
+          "max": 1000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B0_N1000_r2_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B1_N2000_r2",
+      "config": "B1",
+      "agents": 2000,
+      "work": null,
+      "run": 2,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 56.4,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=2000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B1_N2000_r2 -ExecCmds=\"tick.AllowBatchedTicks 1\"",
+      "capture": "2026-11-21_002119_baseline_B1_N2000_r2.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 12.572236083333333,
+          "min": 7.4075,
+          "median": 12.8428,
+          "p95": 16.058739999999997,
+          "p99": 17.964072999999996,
+          "max": 22.0745
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 12.593497416666667,
+          "min": 7.377,
+          "median": 12.861650000000001,
+          "p95": 16.01978499999999,
+          "p99": 18.066053999999998,
+          "max": 22.1046
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 6.651778138888889,
+          "min": 4.1383,
+          "median": 6.60685,
+          "p95": 8.142615,
+          "p99": 9.166149999999998,
+          "max": 13.0727
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.750591083333333,
+          "min": 2.8694,
+          "median": 3.7303,
+          "p95": 4.463164999999999,
+          "p99": 4.734168999999998,
+          "max": 5.1807
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 2000.0,
+          "min": 2000.0,
+          "median": 2000.0,
+          "p95": 2000.0,
+          "p99": 2000.0,
+          "max": 2000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B1_N2000_r2_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B2_N2000_r2",
+      "config": "B2",
+      "agents": 2000,
+      "work": null,
+      "run": 2,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 23.8,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=2000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B2_N2000_r2 -UBBaseline=B2",
+      "capture": "2026-11-21_002119_baseline_B2_N2000_r2.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 2.9179630833333334,
+          "min": 1.6624,
+          "median": 2.81675,
+          "p95": 3.79691,
+          "p99": 6.5374069999999955,
+          "max": 13.6024
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 4.723196222222222,
+          "min": 2.8528,
+          "median": 4.648,
+          "p95": 5.54155,
+          "p99": 6.711068999999963,
+          "max": 12.8547
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.6676440277777775,
+          "min": 3.1551,
+          "median": 4.63595,
+          "p95": 5.44398,
+          "p99": 5.948003,
+          "max": 9.5501
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.069553805555556,
+          "min": 3.2971,
+          "median": 4.0211500000000004,
+          "p95": 4.6538450000000005,
+          "p99": 4.918616999999999,
+          "max": 5.4336
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 190.58416666666668,
+          "min": 100.0,
+          "median": 172.0,
+          "p95": 281.0,
+          "p99": 770.1399999999967,
+          "max": 1363.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 521.3657571666666,
+          "min": 500.0,
+          "median": 500.0,
+          "p95": 583.3334,
+          "p99": 600.0001,
+          "max": 916.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B2_N2000_r2_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B3_N2000_r2",
+      "config": "B3",
+      "agents": 2000,
+      "work": null,
+      "run": 2,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 25.8,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=2000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B3_N2000_r2 -UBBaseline=B3",
+      "capture": "2026-11-21_002119_baseline_B3_N2000_r2.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 3.1400121111111114,
+          "min": 1.8407,
+          "median": 3.0186,
+          "p95": 4.1028449999999985,
+          "p99": 6.901565999999994,
+          "max": 13.5832
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 5.297928277777777,
+          "min": 2.5087,
+          "median": 5.31465,
+          "p95": 6.4729199999999985,
+          "p99": 7.515724999999997,
+          "max": 18.8016
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 5.248122194444445,
+          "min": 3.0615,
+          "median": 5.301550000000001,
+          "p95": 6.380459999999999,
+          "p99": 6.798258999999994,
+          "max": 18.6649
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.421357805555556,
+          "min": 3.132,
+          "median": 4.447900000000001,
+          "p95": 5.276434999999999,
+          "p99": 5.602471999999999,
+          "max": 7.5264
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 190.58416666666668,
+          "min": 100.0,
+          "median": 172.0,
+          "p95": 281.0,
+          "p99": 770.1399999999967,
+          "max": 1363.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 521.3657571666666,
+          "min": 500.0,
+          "median": 500.0,
+          "p95": 583.3334,
+          "p99": 600.0001,
+          "max": 916.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B3_N2000_r2_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B0_N2000_r2",
+      "config": "B0",
+      "agents": 2000,
+      "work": null,
+      "run": 2,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 61.4,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=2000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B0_N2000_r2",
+      "capture": "2026-11-21_002119_baseline_B0_N2000_r2.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 13.873659416666667,
+          "min": 8.0561,
+          "median": 14.2676,
+          "p95": 17.471639999999997,
+          "p99": 19.324440999999997,
+          "max": 24.2942
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 13.89285575,
+          "min": 7.9997,
+          "median": 14.27025,
+          "p95": 17.443235,
+          "p99": 19.297891999999994,
+          "max": 24.3481
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 6.636143694444445,
+          "min": 4.1832,
+          "median": 6.63475,
+          "p95": 7.896924999999999,
+          "p99": 8.864346,
+          "max": 10.4945
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.783540777777778,
+          "min": 2.9378,
+          "median": 3.75455,
+          "p95": 4.416409999999999,
+          "p99": 4.720166999999999,
+          "max": 5.27
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 2000.0,
+          "min": 2000.0,
+          "median": 2000.0,
+          "p95": 2000.0,
+          "p99": 2000.0,
+          "max": 2000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B0_N2000_r2_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B1_N4000_r2",
+      "config": "B1",
+      "agents": 4000,
+      "work": null,
+      "run": 2,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 103.4,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=4000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B1_N4000_r2 -ExecCmds=\"tick.AllowBatchedTicks 1\"",
+      "capture": "2026-11-21_002119_baseline_B1_N4000_r2.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 24.066719527777778,
+          "min": 13.828,
+          "median": 24.70765,
+          "p95": 29.365769999999994,
+          "p99": 32.167905999999995,
+          "max": 39.2298
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 24.101199583333333,
+          "min": 13.7143,
+          "median": 24.79155,
+          "p95": 29.354745,
+          "p99": 32.21257299999998,
+          "max": 39.0226
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 10.651038027777778,
+          "min": 6.23,
+          "median": 10.6974,
+          "p95": 12.849895,
+          "p99": 14.444179999999996,
+          "max": 17.2615
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.95287225,
+          "min": 2.9359,
+          "median": 3.9621500000000003,
+          "p95": 4.65922,
+          "p99": 4.941952999999999,
+          "max": 6.2647
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 4000.0,
+          "min": 4000.0,
+          "median": 4000.0,
+          "p95": 4000.0,
+          "p99": 4000.0,
+          "max": 4000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B1_N4000_r2_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B2_N4000_r2",
+      "config": "B2",
+      "agents": 4000,
+      "work": null,
+      "run": 2,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 26.6,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=4000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B2_N4000_r2 -UBBaseline=B2",
+      "capture": "2026-11-21_002119_baseline_B2_N4000_r2.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 4.122656805555556,
+          "min": 2.1306,
+          "median": 3.74965,
+          "p95": 5.183614999999998,
+          "p99": 17.336557999999975,
+          "max": 27.4898
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 5.485658694444444,
+          "min": 3.3822,
+          "median": 5.0736,
+          "p95": 7.640569999999998,
+          "p99": 17.653528999999914,
+          "max": 27.7226
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 5.144106305555556,
+          "min": 3.2248,
+          "median": 5.059749999999999,
+          "p95": 6.554309999999997,
+          "p99": 8.920227999999986,
+          "max": 12.1334
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.107738194444445,
+          "min": 2.8762,
+          "median": 4.10155,
+          "p95": 4.89357,
+          "p99": 5.391614,
+          "max": 9.1472
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 260.68555555555554,
+          "min": 111.0,
+          "median": 209.0,
+          "p95": 281.0,
+          "p99": 2156.2699999999936,
+          "max": 3107.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 532.180580638889,
+          "min": 500.0,
+          "median": 516.6667,
+          "p95": 583.3334,
+          "p99": 600.0001,
+          "max": 600.0001
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B2_N4000_r2_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B3_N4000_r2",
+      "config": "B3",
+      "agents": 4000,
+      "work": null,
+      "run": 2,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 28.1,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=4000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B3_N4000_r2 -UBBaseline=B3",
+      "capture": "2026-11-21_002119_baseline_B3_N4000_r2.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 4.480214444444445,
+          "min": 2.1967,
+          "median": 4.0976,
+          "p95": 5.495284999999999,
+          "p99": 18.760259,
+          "max": 26.6206
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 5.651844361111111,
+          "min": 3.2905,
+          "median": 5.216749999999999,
+          "p95": 7.559764999999996,
+          "p99": 19.413291999999995,
+          "max": 27.1213
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 5.275336083333333,
+          "min": 3.4268,
+          "median": 5.1575500000000005,
+          "p95": 6.573345,
+          "p99": 8.943867999999977,
+          "max": 12.462
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.237608138888889,
+          "min": 2.9368,
+          "median": 4.1868,
+          "p95": 5.101624999999999,
+          "p99": 5.5785899999999975,
+          "max": 6.9587
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 260.68555555555554,
+          "min": 111.0,
+          "median": 209.0,
+          "p95": 281.0,
+          "p99": 2156.2699999999936,
+          "max": 3107.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 532.180580638889,
+          "min": 500.0,
+          "median": 516.6667,
+          "p95": 583.3334,
+          "p99": 600.0001,
+          "max": 600.0001
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B3_N4000_r2_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B0_N4000_r2",
+      "config": "B0",
+      "agents": 4000,
+      "work": null,
+      "run": 2,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 108.5,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=4000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B0_N4000_r2",
+      "capture": "2026-11-21_002119_baseline_B0_N4000_r2.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 24.870462944444444,
+          "min": 14.7303,
+          "median": 25.9438,
+          "p95": 31.205435,
+          "p99": 34.454860999999994,
+          "max": 42.4636
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 24.903985361111108,
+          "min": 14.7474,
+          "median": 26.008049999999997,
+          "p95": 31.263845,
+          "p99": 34.465357999999995,
+          "max": 42.5649
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 10.071757638888888,
+          "min": 5.8594,
+          "median": 10.166250000000002,
+          "p95": 12.398814999999999,
+          "p99": 14.143868999999988,
+          "max": 16.9143
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.4410190833333334,
+          "min": 2.8999,
+          "median": 3.31425,
+          "p95": 4.379505,
+          "p99": 4.778054999999998,
+          "max": 6.8527
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 4000.0,
+          "min": 4000.0,
+          "median": 4000.0,
+          "p95": 4000.0,
+          "p99": 4000.0,
+          "max": 4000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B0_N4000_r2_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B2_N100_r3",
+      "config": "B2",
+      "agents": 100,
+      "work": null,
+      "run": 3,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 22.5,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=100 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B2_N100_r3 -UBBaseline=B2",
+      "capture": "2026-11-21_002119_baseline_B2_N100_r3.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 1.699980972222222,
+          "min": 1.0422,
+          "median": 1.61875,
+          "p95": 2.2382649999999984,
+          "p99": 3.636528999999999,
+          "max": 6.4472
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 4.518152916666667,
+          "min": 1.5992,
+          "median": 4.4471,
+          "p95": 5.812684999999998,
+          "p99": 6.499906999999995,
+          "max": 10.2067
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.510444555555555,
+          "min": 2.5726,
+          "median": 4.441,
+          "p95": 5.788114999999999,
+          "p99": 6.444544999999999,
+          "max": 8.6467
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.849002944444444,
+          "min": 2.8853,
+          "median": 3.79085,
+          "p95": 4.6425,
+          "p99": 5.006183999999996,
+          "max": 6.5283
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 41.91,
+          "min": 27.0,
+          "median": 41.0,
+          "p95": 53.0,
+          "p99": 62.0,
+          "max": 63.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 100.36111183333334,
+          "min": 100.0,
+          "median": 100.0,
+          "p95": 100.0,
+          "p99": 116.6667,
+          "max": 116.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B2_N100_r3_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B3_N100_r3",
+      "config": "B3",
+      "agents": 100,
+      "work": null,
+      "run": 3,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 24.0,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=100 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B3_N100_r3 -UBBaseline=B3",
+      "capture": "2026-11-21_002119_baseline_B3_N100_r3.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 1.846665888888889,
+          "min": 1.0544,
+          "median": 1.8005,
+          "p95": 2.47301,
+          "p99": 2.9480209999999993,
+          "max": 7.1582
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 4.865475305555556,
+          "min": 1.6597,
+          "median": 4.7021,
+          "p95": 6.2844,
+          "p99": 8.398214999999977,
+          "max": 22.9811
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.8573588333333335,
+          "min": 3.0482,
+          "median": 4.69095,
+          "p95": 6.238409999999999,
+          "p99": 8.370821999999992,
+          "max": 21.8177
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.9363033055555556,
+          "min": 3.0225,
+          "median": 3.8566000000000003,
+          "p95": 4.782025,
+          "p99": 5.378737999999999,
+          "max": 8.2114
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 41.91,
+          "min": 27.0,
+          "median": 41.0,
+          "p95": 53.0,
+          "p99": 62.0,
+          "max": 63.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 100.36111183333334,
+          "min": 100.0,
+          "median": 100.0,
+          "p95": 100.0,
+          "p99": 116.6667,
+          "max": 116.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B3_N100_r3_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B0_N100_r3",
+      "config": "B0",
+      "agents": 100,
+      "work": null,
+      "run": 3,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 25.3,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=100 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B0_N100_r3",
+      "capture": "2026-11-21_002119_baseline_B0_N100_r3.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 2.3183344166666666,
+          "min": 1.4403,
+          "median": 2.2967,
+          "p95": 2.9173899999999997,
+          "p99": 3.253383999999998,
+          "max": 8.6044
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 5.0646225,
+          "min": 2.1002,
+          "median": 5.00745,
+          "p95": 6.2745799999999985,
+          "p99": 6.78121,
+          "max": 12.6732
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 5.055245222222222,
+          "min": 3.4622,
+          "median": 4.99155,
+          "p95": 6.264499999999999,
+          "p99": 6.725632999999999,
+          "max": 8.2043
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.234972972222223,
+          "min": 3.332,
+          "median": 4.103,
+          "p95": 5.1479099999999995,
+          "p99": 5.524313999999998,
+          "max": 7.5061
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 100.0,
+          "min": 100.0,
+          "median": 100.0,
+          "p95": 100.0,
+          "p99": 100.0,
+          "max": 100.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B0_N100_r3_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B1_N100_r3",
+      "config": "B1",
+      "agents": 100,
+      "work": null,
+      "run": 3,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 26.0,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=100 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B1_N100_r3 -ExecCmds=\"tick.AllowBatchedTicks 1\"",
+      "capture": "2026-11-21_002119_baseline_B1_N100_r3.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 2.17352475,
+          "min": 1.3173,
+          "median": 2.13625,
+          "p95": 2.8920049999999997,
+          "p99": 3.5307809999999957,
+          "max": 13.7483
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 5.175660027777778,
+          "min": 2.464,
+          "median": 5.02835,
+          "p95": 6.492979999999999,
+          "p99": 8.21389299999999,
+          "max": 25.1767
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 5.165498472222223,
+          "min": 3.0356,
+          "median": 5.02425,
+          "p95": 6.42642,
+          "p99": 8.059523999999978,
+          "max": 25.1596
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.26717575,
+          "min": 3.2019,
+          "median": 4.1703,
+          "p95": 5.122649999999998,
+          "p99": 5.694608000000001,
+          "max": 6.9709
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 100.0,
+          "min": 100.0,
+          "median": 100.0,
+          "p95": 100.0,
+          "p99": 100.0,
+          "max": 100.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B1_N100_r3_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B2_N1000_r3",
+      "config": "B2",
+      "agents": 1000,
+      "work": null,
+      "run": 3,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 25.1,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=1000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B2_N1000_r3 -UBBaseline=B2",
+      "capture": "2026-11-21_002119_baseline_B2_N1000_r3.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 2.6175299722222225,
+          "min": 1.304,
+          "median": 2.5293,
+          "p95": 3.627215,
+          "p99": 4.74641599999999,
+          "max": 9.5014
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 4.945968611111112,
+          "min": 3.0369,
+          "median": 4.8706499999999995,
+          "p95": 6.0354,
+          "p99": 6.672721999999999,
+          "max": 13.1083
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.930451277777777,
+          "min": 3.3463,
+          "median": 4.858,
+          "p95": 5.961065,
+          "p99": 6.569139999999999,
+          "max": 8.5954
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.279768194444444,
+          "min": 3.5364,
+          "median": 4.1883,
+          "p95": 5.04383,
+          "p99": 5.491773999999998,
+          "max": 6.6701
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 143.72583333333333,
+          "min": 57.0,
+          "median": 130.0,
+          "p95": 251.0,
+          "p99": 403.0,
+          "max": 691.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 510.6157489722222,
+          "min": 483.3333,
+          "median": 500.0,
+          "p95": 583.3334,
+          "p99": 583.3334,
+          "max": 600.0001
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B2_N1000_r3_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B3_N1000_r3",
+      "config": "B3",
+      "agents": 1000,
+      "work": null,
+      "run": 3,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 24.8,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=1000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B3_N1000_r3 -UBBaseline=B3",
+      "capture": "2026-11-21_002119_baseline_B3_N1000_r3.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 2.6787412500000003,
+          "min": 1.4028,
+          "median": 2.57815,
+          "p95": 3.6794099999999994,
+          "p99": 5.004632999999988,
+          "max": 8.5775
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 4.991202888888888,
+          "min": 3.1818,
+          "median": 4.9173,
+          "p95": 6.097535,
+          "p99": 6.699134999999999,
+          "max": 11.8809
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.974043527777778,
+          "min": 3.2359,
+          "median": 4.9077,
+          "p95": 6.0585450000000005,
+          "p99": 6.633218,
+          "max": 11.6983
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.314986111111112,
+          "min": 3.4407,
+          "median": 4.2205,
+          "p95": 5.062535,
+          "p99": 5.504279999999998,
+          "max": 6.9968
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 143.72583333333333,
+          "min": 57.0,
+          "median": 130.0,
+          "p95": 251.0,
+          "p99": 403.0,
+          "max": 691.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 510.6157489722222,
+          "min": 483.3333,
+          "median": 500.0,
+          "p95": 583.3334,
+          "p99": 583.3334,
+          "max": 600.0001
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B3_N1000_r3_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B0_N1000_r3",
+      "config": "B0",
+      "agents": 1000,
+      "work": null,
+      "run": 3,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 36.0,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=1000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B0_N1000_r3",
+      "capture": "2026-11-21_002119_baseline_B0_N1000_r3.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 7.694368222222223,
+          "min": 4.6468,
+          "median": 7.9082,
+          "p95": 10.545609999999998,
+          "p99": 11.566126999999998,
+          "max": 14.5644
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 7.713197305555556,
+          "min": 4.5693,
+          "median": 7.930949999999999,
+          "p95": 10.56251,
+          "p99": 11.525649999999995,
+          "max": 13.5482
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.512989722222223,
+          "min": 2.816,
+          "median": 4.43145,
+          "p95": 5.940709999999999,
+          "p99": 6.516801,
+          "max": 7.7842
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.567959027777778,
+          "min": 2.9589,
+          "median": 3.47215,
+          "p95": 4.235149999999998,
+          "p99": 4.827129999999999,
+          "max": 6.2705
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 1000.0,
+          "min": 1000.0,
+          "median": 1000.0,
+          "p95": 1000.0,
+          "p99": 1000.0,
+          "max": 1000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B0_N1000_r3_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B1_N1000_r3",
+      "config": "B1",
+      "agents": 1000,
+      "work": null,
+      "run": 3,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 34.9,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=1000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B1_N1000_r3 -ExecCmds=\"tick.AllowBatchedTicks 1\"",
+      "capture": "2026-11-21_002119_baseline_B1_N1000_r3.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 7.499547083333334,
+          "min": 4.2941,
+          "median": 7.5438,
+          "p95": 9.91425,
+          "p99": 10.749938999999989,
+          "max": 13.546
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 7.52012775,
+          "min": 4.1898,
+          "median": 7.54575,
+          "p95": 9.938830000000001,
+          "p99": 10.758077999999996,
+          "max": 13.182
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.925832166666667,
+          "min": 2.8387,
+          "median": 4.8482,
+          "p95": 6.333959999999999,
+          "p99": 6.958249999999999,
+          "max": 8.7101
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.8298591388888887,
+          "min": 2.9518,
+          "median": 3.7344,
+          "p95": 4.759405,
+          "p99": 5.201956999999999,
+          "max": 6.6874
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 1000.0,
+          "min": 1000.0,
+          "median": 1000.0,
+          "p95": 1000.0,
+          "p99": 1000.0,
+          "max": 1000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B1_N1000_r3_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B2_N2000_r3",
+      "config": "B2",
+      "agents": 2000,
+      "work": null,
+      "run": 3,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 26.0,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=2000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B2_N2000_r3 -UBBaseline=B2",
+      "capture": "2026-11-21_002119_baseline_B2_N2000_r3.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 3.3184495833333334,
+          "min": 1.8643,
+          "median": 3.1923500000000002,
+          "p95": 4.412864999999997,
+          "p99": 7.884601999999967,
+          "max": 14.0416
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 5.180761166666667,
+          "min": 3.0543,
+          "median": 5.0512999999999995,
+          "p95": 6.45221,
+          "p99": 8.673195999999997,
+          "max": 17.5835
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 5.12067525,
+          "min": 3.3487,
+          "median": 5.02555,
+          "p95": 6.346909999999999,
+          "p99": 6.859736999999994,
+          "max": 17.623
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.282277527777778,
+          "min": 3.2425,
+          "median": 4.1587499999999995,
+          "p95": 5.167145,
+          "p99": 5.699550999999999,
+          "max": 9.895
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 190.58416666666668,
+          "min": 100.0,
+          "median": 172.0,
+          "p95": 281.0,
+          "p99": 770.1399999999967,
+          "max": 1363.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 521.3657571666666,
+          "min": 500.0,
+          "median": 500.0,
+          "p95": 583.3334,
+          "p99": 600.0001,
+          "max": 916.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B2_N2000_r3_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B3_N2000_r3",
+      "config": "B3",
+      "agents": 2000,
+      "work": null,
+      "run": 3,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 27.9,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=2000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B3_N2000_r3 -UBBaseline=B3",
+      "capture": "2026-11-21_002119_baseline_B3_N2000_r3.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 3.5079193055555558,
+          "min": 1.9988,
+          "median": 3.3635,
+          "p95": 4.655289999999999,
+          "p99": 7.848645999999976,
+          "max": 14.8795
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 5.614217555555555,
+          "min": 3.4658,
+          "median": 5.5794999999999995,
+          "p95": 6.794165,
+          "p99": 8.755736999999996,
+          "max": 14.0757
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 5.5587332499999995,
+          "min": 3.3257,
+          "median": 5.57165,
+          "p95": 6.7005099999999995,
+          "p99": 7.424985999999979,
+          "max": 13.1099
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.580589527777778,
+          "min": 3.2972,
+          "median": 4.53595,
+          "p95": 5.358175,
+          "p99": 5.875978999999997,
+          "max": 8.3603
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 190.58416666666668,
+          "min": 100.0,
+          "median": 172.0,
+          "p95": 281.0,
+          "p99": 770.1399999999967,
+          "max": 1363.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 521.3657571666666,
+          "min": 500.0,
+          "median": 500.0,
+          "p95": 583.3334,
+          "p99": 600.0001,
+          "max": 916.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B3_N2000_r3_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B0_N2000_r3",
+      "config": "B0",
+      "agents": 2000,
+      "work": null,
+      "run": 3,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 69.6,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=2000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B0_N2000_r3",
+      "capture": "2026-11-21_002119_baseline_B0_N2000_r3.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 15.569436527777778,
+          "min": 8.0905,
+          "median": 16.16005,
+          "p95": 19.837549999999997,
+          "p99": 21.197875999999997,
+          "max": 25.5343
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 15.591186055555555,
+          "min": 8.3074,
+          "median": 16.1958,
+          "p95": 19.85238499999999,
+          "p99": 21.156160999999997,
+          "max": 24.1263
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 7.472643777777778,
+          "min": 4.0368,
+          "median": 7.4298,
+          "p95": 9.392325,
+          "p99": 10.342602999999999,
+          "max": 13.1397
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.5365784722222227,
+          "min": 2.957,
+          "median": 3.4099,
+          "p95": 4.35437,
+          "p99": 4.755738999999999,
+          "max": 7.4438
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 2000.0,
+          "min": 2000.0,
+          "median": 2000.0,
+          "p95": 2000.0,
+          "p99": 2000.0,
+          "max": 2000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B0_N2000_r3_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B1_N2000_r3",
+      "config": "B1",
+      "agents": 2000,
+      "work": null,
+      "run": 3,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 61.4,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=2000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B1_N2000_r3 -ExecCmds=\"tick.AllowBatchedTicks 1\"",
+      "capture": "2026-11-21_002119_baseline_B1_N2000_r3.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 13.73780075,
+          "min": 7.3581,
+          "median": 13.95975,
+          "p95": 17.843704999999996,
+          "p99": 19.205924,
+          "max": 23.5239
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 13.759967611111112,
+          "min": 7.2933,
+          "median": 13.97755,
+          "p95": 17.845549999999996,
+          "p99": 19.267077999999998,
+          "max": 22.8229
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 7.275458333333334,
+          "min": 3.9346,
+          "median": 7.218450000000001,
+          "p95": 9.37225,
+          "p99": 10.476289999999997,
+          "max": 11.6673
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.375691611111111,
+          "min": 2.8467,
+          "median": 3.27295,
+          "p95": 4.092255,
+          "p99": 4.666638999999999,
+          "max": 5.3457
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 2000.0,
+          "min": 2000.0,
+          "median": 2000.0,
+          "p95": 2000.0,
+          "p99": 2000.0,
+          "max": 2000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B1_N2000_r3_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B2_N4000_r3",
+      "config": "B2",
+      "agents": 4000,
+      "work": null,
+      "run": 3,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 28.3,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=4000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B2_N4000_r3 -UBBaseline=B2",
+      "capture": "2026-11-21_002119_baseline_B2_N4000_r3.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 4.689487638888889,
+          "min": 2.3073,
+          "median": 4.2801,
+          "p95": 5.892639999999995,
+          "p99": 19.54441799999992,
+          "max": 27.3247
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 5.713889444444445,
+          "min": 2.9446,
+          "median": 5.1918500000000005,
+          "p95": 8.380689999999994,
+          "p99": 20.11966399999988,
+          "max": 27.9491
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 5.321169361111111,
+          "min": 3.5032,
+          "median": 5.135149999999999,
+          "p95": 6.739145,
+          "p99": 10.327004999999993,
+          "max": 15.8646
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.8693096111111114,
+          "min": 2.8322,
+          "median": 3.7996,
+          "p95": 4.71794,
+          "p99": 5.158254999999999,
+          "max": 6.6033
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 260.68555555555554,
+          "min": 111.0,
+          "median": 209.0,
+          "p95": 281.0,
+          "p99": 2156.2699999999936,
+          "max": 3107.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 532.180580638889,
+          "min": 500.0,
+          "median": 516.6667,
+          "p95": 583.3334,
+          "p99": 600.0001,
+          "max": 600.0001
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B2_N4000_r3_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B3_N4000_r3",
+      "config": "B3",
+      "agents": 4000,
+      "work": null,
+      "run": 3,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 31.3,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=4000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B3_N4000_r3 -UBBaseline=B3",
+      "capture": "2026-11-21_002119_baseline_B3_N4000_r3.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 5.07443386111111,
+          "min": 2.5067,
+          "median": 4.64025,
+          "p95": 6.327814999999993,
+          "p99": 20.85910899999997,
+          "max": 30.3483
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 6.4428065,
+          "min": 3.577,
+          "median": 6.0249500000000005,
+          "p95": 8.632084999999998,
+          "p99": 21.22765899999989,
+          "max": 31.0511
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 6.03080411111111,
+          "min": 3.4823,
+          "median": 5.98255,
+          "p95": 7.649959999999998,
+          "p99": 10.214281999999985,
+          "max": 14.2054
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.758106361111111,
+          "min": 3.1496,
+          "median": 4.8561499999999995,
+          "p95": 5.883839999999999,
+          "p99": 6.445654999999999,
+          "max": 7.5445
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 260.68555555555554,
+          "min": 111.0,
+          "median": 209.0,
+          "p95": 281.0,
+          "p99": 2156.2699999999936,
+          "max": 3107.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 532.180580638889,
+          "min": 500.0,
+          "median": 516.6667,
+          "p95": 583.3334,
+          "p99": 600.0001,
+          "max": 600.0001
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B3_N4000_r3_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B0_N4000_r3",
+      "config": "B0",
+      "agents": 4000,
+      "work": null,
+      "run": 3,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 120.8,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=4000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B0_N4000_r3",
+      "capture": "2026-11-21_002119_baseline_B0_N4000_r3.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 27.615471805555554,
+          "min": 15.1219,
+          "median": 28.323549999999997,
+          "p95": 35.419465,
+          "p99": 39.01009799999999,
+          "max": 44.2293
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 27.647384555555558,
+          "min": 14.9509,
+          "median": 28.3532,
+          "p95": 35.41739,
+          "p99": 39.009556999999994,
+          "max": 44.8693
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 11.173597388888888,
+          "min": 5.927,
+          "median": 11.0724,
+          "p95": 14.439364999999999,
+          "p99": 16.089633999999986,
+          "max": 18.4488
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.8229931111111113,
+          "min": 2.9099,
+          "median": 3.83455,
+          "p95": 4.671739999999999,
+          "p99": 4.979707,
+          "max": 5.7582
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 4000.0,
+          "min": 4000.0,
+          "median": 4000.0,
+          "p95": 4000.0,
+          "p99": 4000.0,
+          "max": 4000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B0_N4000_r3_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B1_N4000_r3",
+      "config": "B1",
+      "agents": 4000,
+      "work": null,
+      "run": 3,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 68.5,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=4000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B1_N4000_r3 -ExecCmds=\"tick.AllowBatchedTicks 1\"",
+      "capture": "2026-11-21_002119_baseline_B1_N4000_r3.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 15.52794825,
+          "min": 14.0202,
+          "median": 15.236,
+          "p95": 17.404425,
+          "p99": 18.736705,
+          "max": 25.3484
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 15.539077138888889,
+          "min": 13.9844,
+          "median": 15.2423,
+          "p95": 17.416749999999997,
+          "p99": 18.688227999999995,
+          "max": 25.2239
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 6.8378961388888895,
+          "min": 5.7445,
+          "median": 6.6521,
+          "p95": 8.273069999999999,
+          "p99": 9.295421999999997,
+          "max": 13.4149
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.209815388888889,
+          "min": 2.8616,
+          "median": 3.15355,
+          "p95": 3.5730399999999998,
+          "p99": 3.698406,
+          "max": 4.3532
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 4000.0,
+          "min": 4000.0,
+          "median": 4000.0,
+          "p95": 4000.0,
+          "p99": 4000.0,
+          "max": 4000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B1_N4000_r3_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B3_N100_r4",
+      "config": "B3",
+      "agents": 100,
+      "work": null,
+      "run": 4,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 21.7,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=100 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B3_N100_r4 -UBBaseline=B3",
+      "capture": "2026-11-21_002119_baseline_B3_N100_r4.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 1.5490256944444445,
+          "min": 1.1002,
+          "median": 1.4716,
+          "p95": 2.045125,
+          "p99": 2.354701,
+          "max": 7.1744
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 4.36825775,
+          "min": 2.097,
+          "median": 4.301349999999999,
+          "p95": 5.089405,
+          "p99": 5.851808999999999,
+          "max": 18.4996
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.362904416666667,
+          "min": 2.7841,
+          "median": 4.293,
+          "p95": 5.082019999999999,
+          "p99": 5.835725999999999,
+          "max": 18.3779
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.7715573611111113,
+          "min": 3.1656,
+          "median": 3.7037,
+          "p95": 4.40213,
+          "p99": 4.874022999999999,
+          "max": 5.9563
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 41.91,
+          "min": 27.0,
+          "median": 41.0,
+          "p95": 53.0,
+          "p99": 62.0,
+          "max": 63.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 100.36111183333334,
+          "min": 100.0,
+          "median": 100.0,
+          "p95": 100.0,
+          "p99": 116.6667,
+          "max": 116.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B3_N100_r4_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B0_N100_r4",
+      "config": "B0",
+      "agents": 100,
+      "work": null,
+      "run": 4,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 23.7,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=100 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B0_N100_r4",
+      "capture": "2026-11-21_002119_baseline_B0_N100_r4.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 2.106254277777778,
+          "min": 1.2517,
+          "median": 2.0997,
+          "p95": 2.6668399999999997,
+          "p99": 3.003037999999999,
+          "max": 8.9726
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 4.906346694444444,
+          "min": 2.2152,
+          "median": 4.8354,
+          "p95": 6.2225150000000005,
+          "p99": 6.816516999999997,
+          "max": 14.0606
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.897889444444444,
+          "min": 2.898,
+          "median": 4.82615,
+          "p95": 6.188744999999999,
+          "p99": 6.811703,
+          "max": 13.9302
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.213969277777777,
+          "min": 3.2869,
+          "median": 4.0953,
+          "p95": 5.1354999999999995,
+          "p99": 5.546231999999999,
+          "max": 8.1442
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 100.0,
+          "min": 100.0,
+          "median": 100.0,
+          "p95": 100.0,
+          "p99": 100.0,
+          "max": 100.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B0_N100_r4_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B1_N100_r4",
+      "config": "B1",
+      "agents": 100,
+      "work": null,
+      "run": 4,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 27.1,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=100 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B1_N100_r4 -ExecCmds=\"tick.AllowBatchedTicks 1\"",
+      "capture": "2026-11-21_002119_baseline_B1_N100_r4.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 2.1423241944444444,
+          "min": 1.4337,
+          "median": 2.1317,
+          "p95": 2.6832599999999993,
+          "p99": 3.1058459999999988,
+          "max": 9.7271
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 5.4947241388888886,
+          "min": 2.7194,
+          "median": 5.5131,
+          "p95": 6.5244349999999995,
+          "p99": 7.088856999999999,
+          "max": 13.4581
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 5.485792111111111,
+          "min": 3.2736,
+          "median": 5.5092,
+          "p95": 6.475535,
+          "p99": 7.088104999999998,
+          "max": 8.1256
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.679826027777778,
+          "min": 3.3036,
+          "median": 4.70885,
+          "p95": 5.426625,
+          "p99": 5.7687349999999995,
+          "max": 6.9173
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 100.0,
+          "min": 100.0,
+          "median": 100.0,
+          "p95": 100.0,
+          "p99": 100.0,
+          "max": 100.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B1_N100_r4_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B2_N100_r4",
+      "config": "B2",
+      "agents": 100,
+      "work": null,
+      "run": 4,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 26.0,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=100 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B2_N100_r4 -UBBaseline=B2",
+      "capture": "2026-11-21_002119_baseline_B2_N100_r4.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 1.7962528055555558,
+          "min": 1.1917,
+          "median": 1.7536,
+          "p95": 2.270615,
+          "p99": 2.7317329999999966,
+          "max": 8.5409
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 5.390186388888888,
+          "min": 2.3498,
+          "median": 5.40965,
+          "p95": 6.469784999999999,
+          "p99": 6.894113999999999,
+          "max": 13.7139
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 5.381057972222223,
+          "min": 3.2648,
+          "median": 5.40005,
+          "p95": 6.440474999999998,
+          "p99": 6.865843999999999,
+          "max": 9.7716
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.599709083333334,
+          "min": 3.2787,
+          "median": 4.6173,
+          "p95": 5.3931,
+          "p99": 5.743351999999998,
+          "max": 8.0974
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 41.91,
+          "min": 27.0,
+          "median": 41.0,
+          "p95": 53.0,
+          "p99": 62.0,
+          "max": 63.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 100.36111183333334,
+          "min": 100.0,
+          "median": 100.0,
+          "p95": 100.0,
+          "p99": 116.6667,
+          "max": 116.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B2_N100_r4_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B3_N1000_r4",
+      "config": "B3",
+      "agents": 1000,
+      "work": null,
+      "run": 4,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 23.8,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=1000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B3_N1000_r4 -UBBaseline=B3",
+      "capture": "2026-11-21_002119_baseline_B3_N1000_r4.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 2.5353362777777777,
+          "min": 1.531,
+          "median": 2.4480000000000004,
+          "p95": 3.4558449999999996,
+          "p99": 4.237005,
+          "max": 6.2897
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 4.824067972222222,
+          "min": 2.7165,
+          "median": 4.78015,
+          "p95": 5.46408,
+          "p99": 5.756903999999998,
+          "max": 10.8173
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.816830555555556,
+          "min": 2.845,
+          "median": 4.768750000000001,
+          "p95": 5.44122,
+          "p99": 5.720924999999999,
+          "max": 10.7855
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.194746888888889,
+          "min": 3.5402,
+          "median": 4.15195,
+          "p95": 4.76817,
+          "p99": 4.965228,
+          "max": 5.333
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 143.72583333333333,
+          "min": 57.0,
+          "median": 130.0,
+          "p95": 251.0,
+          "p99": 403.0,
+          "max": 691.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 510.6157489722222,
+          "min": 483.3333,
+          "median": 500.0,
+          "p95": 583.3334,
+          "p99": 583.3334,
+          "max": 600.0001
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B3_N1000_r4_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B0_N1000_r4",
+      "config": "B0",
+      "agents": 1000,
+      "work": null,
+      "run": 4,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 29.9,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=1000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B0_N1000_r4",
+      "capture": "2026-11-21_002119_baseline_B0_N1000_r4.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 6.1681551388888884,
+          "min": 5.189,
+          "median": 6.0131499999999996,
+          "p95": 7.352289999999999,
+          "p99": 8.228119,
+          "max": 11.3091
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 6.181539833333333,
+          "min": 5.2077,
+          "median": 6.03125,
+          "p95": 7.360164999999998,
+          "p99": 8.289312,
+          "max": 12.9639
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 3.7319233055555556,
+          "min": 2.9403,
+          "median": 3.6001000000000003,
+          "p95": 4.80207,
+          "p99": 5.623061999999994,
+          "max": 9.4078
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.801864222222222,
+          "min": 3.1528,
+          "median": 3.745,
+          "p95": 4.365205,
+          "p99": 4.648929999999999,
+          "max": 5.5368
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 1000.0,
+          "min": 1000.0,
+          "median": 1000.0,
+          "p95": 1000.0,
+          "p99": 1000.0,
+          "max": 1000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B0_N1000_r4_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B1_N1000_r4",
+      "config": "B1",
+      "agents": 1000,
+      "work": null,
+      "run": 4,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 26.5,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=1000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B1_N1000_r4 -ExecCmds=\"tick.AllowBatchedTicks 1\"",
+      "capture": "2026-11-21_002119_baseline_B1_N1000_r4.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 5.621387583333333,
+          "min": 4.7267,
+          "median": 5.5146,
+          "p95": 6.644284999999999,
+          "p99": 7.291498999999991,
+          "max": 10.7336
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 5.634621222222222,
+          "min": 4.6724,
+          "median": 5.51975,
+          "p95": 6.66893,
+          "p99": 7.291723999999999,
+          "max": 11.099
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 3.71866075,
+          "min": 2.8729,
+          "median": 3.5841,
+          "p95": 4.800264999999996,
+          "p99": 5.4967159999999975,
+          "max": 6.9073
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.6789021944444444,
+          "min": 3.0855,
+          "median": 3.6329000000000002,
+          "p95": 4.216905,
+          "p99": 4.481419,
+          "max": 4.7775
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 1000.0,
+          "min": 1000.0,
+          "median": 1000.0,
+          "p95": 1000.0,
+          "p99": 1000.0,
+          "max": 1000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B1_N1000_r4_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B2_N1000_r4",
+      "config": "B2",
+      "agents": 1000,
+      "work": null,
+      "run": 4,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 23.7,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=1000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B2_N1000_r4 -UBBaseline=B2",
+      "capture": "2026-11-21_002119_baseline_B2_N1000_r4.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 2.469235611111111,
+          "min": 1.5065,
+          "median": 2.3728499999999997,
+          "p95": 3.4425699999999995,
+          "p99": 4.116830999999997,
+          "max": 8.735
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 4.851309888888888,
+          "min": 2.6032,
+          "median": 4.69585,
+          "p95": 6.06963,
+          "p99": 6.666364999999998,
+          "max": 12.9036
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.843299388888888,
+          "min": 3.1453,
+          "median": 4.68375,
+          "p95": 6.0403449999999985,
+          "p99": 6.632436999999997,
+          "max": 12.8117
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.201890972222222,
+          "min": 3.4476,
+          "median": 4.0832,
+          "p95": 5.072264999999999,
+          "p99": 5.54714,
+          "max": 6.7621
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 143.72583333333333,
+          "min": 57.0,
+          "median": 130.0,
+          "p95": 251.0,
+          "p99": 403.0,
+          "max": 691.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 510.6157489722222,
+          "min": 483.3333,
+          "median": 500.0,
+          "p95": 583.3334,
+          "p99": 583.3334,
+          "max": 600.0001
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B2_N1000_r4_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B3_N2000_r4",
+      "config": "B3",
+      "agents": 2000,
+      "work": null,
+      "run": 4,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 26.9,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=2000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B3_N2000_r4 -UBBaseline=B3",
+      "capture": "2026-11-21_002119_baseline_B3_N2000_r4.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 3.4966779722222223,
+          "min": 1.9169,
+          "median": 3.38335,
+          "p95": 4.592839999999999,
+          "p99": 7.437047999999966,
+          "max": 15.7319
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 5.530891555555555,
+          "min": 3.2064,
+          "median": 5.50565,
+          "p95": 6.6958199999999986,
+          "p99": 8.123352999999955,
+          "max": 15.9416
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 5.475833222222222,
+          "min": 3.073,
+          "median": 5.5095,
+          "p95": 6.572105,
+          "p99": 7.1284779999999985,
+          "max": 12.0218
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 4.591672666666667,
+          "min": 3.4284,
+          "median": 4.577450000000001,
+          "p95": 5.447194999999999,
+          "p99": 5.947907,
+          "max": 8.206
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 190.58416666666668,
+          "min": 100.0,
+          "median": 172.0,
+          "p95": 281.0,
+          "p99": 770.1399999999967,
+          "max": 1363.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 521.3657571666666,
+          "min": 500.0,
+          "median": 500.0,
+          "p95": 583.3334,
+          "p99": 600.0001,
+          "max": 916.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B3_N2000_r4_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B0_N2000_r4",
+      "config": "B0",
+      "agents": 2000,
+      "work": null,
+      "run": 4,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 60.9,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=2000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B0_N2000_r4",
+      "capture": "2026-11-21_002119_baseline_B0_N2000_r4.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 13.757619944444444,
+          "min": 7.7668,
+          "median": 14.16395,
+          "p95": 18.728755,
+          "p99": 20.746946999999995,
+          "max": 27.2788
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 13.777658,
+          "min": 7.6486,
+          "median": 14.18975,
+          "p95": 18.712464999999998,
+          "p99": 20.60624499999998,
+          "max": 27.3295
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 6.568193833333334,
+          "min": 3.878,
+          "median": 6.46115,
+          "p95": 8.466615,
+          "p99": 9.290583999999997,
+          "max": 12.3233
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.2372844166666668,
+          "min": 2.8708,
+          "median": 3.1813,
+          "p95": 3.661625,
+          "p99": 3.932609,
+          "max": 4.5699
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 2000.0,
+          "min": 2000.0,
+          "median": 2000.0,
+          "p95": 2000.0,
+          "p99": 2000.0,
+          "max": 2000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B0_N2000_r4_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B1_N2000_r4",
+      "config": "B1",
+      "agents": 2000,
+      "work": null,
+      "run": 4,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 40.5,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=2000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B1_N2000_r4 -ExecCmds=\"tick.AllowBatchedTicks 1\"",
+      "capture": "2026-11-21_002119_baseline_B1_N2000_r4.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 8.897947555555556,
+          "min": 7.8268,
+          "median": 8.75855,
+          "p95": 10.129159999999999,
+          "p99": 10.914861999999992,
+          "max": 12.7682
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 8.91269386111111,
+          "min": 7.7547,
+          "median": 8.76275,
+          "p95": 10.117104999999999,
+          "p99": 10.898214999999997,
+          "max": 12.8302
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.703430000000001,
+          "min": 3.8571,
+          "median": 4.60305,
+          "p95": 5.642239999999999,
+          "p99": 6.4179819999999985,
+          "max": 9.1813
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.0651561666666667,
+          "min": 2.7578,
+          "median": 3.0234,
+          "p95": 3.46001,
+          "p99": 3.578525999999999,
+          "max": 3.7889
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 2000.0,
+          "min": 2000.0,
+          "median": 2000.0,
+          "p95": 2000.0,
+          "p99": 2000.0,
+          "max": 2000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B1_N2000_r4_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B2_N2000_r4",
+      "config": "B2",
+      "agents": 2000,
+      "work": null,
+      "run": 4,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 22.4,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=2000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B2_N2000_r4 -UBBaseline=B2",
+      "capture": "2026-11-21_002119_baseline_B2_N2000_r4.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 2.7466359444444444,
+          "min": 1.8084,
+          "median": 2.63445,
+          "p95": 3.6026849999999992,
+          "p99": 5.302496999999984,
+          "max": 8.8739
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 4.436629305555556,
+          "min": 2.7334,
+          "median": 4.38345,
+          "p95": 5.150975,
+          "p99": 6.014395999999993,
+          "max": 11.7389
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.4079943055555555,
+          "min": 2.9372,
+          "median": 4.37345,
+          "p95": 5.0625,
+          "p99": 5.404808,
+          "max": 11.7272
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.793350888888889,
+          "min": 3.0052,
+          "median": 3.76075,
+          "p95": 4.343215000000001,
+          "p99": 4.5999039999999995,
+          "max": 5.0661
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 190.58416666666668,
+          "min": 100.0,
+          "median": 172.0,
+          "p95": 281.0,
+          "p99": 770.1399999999967,
+          "max": 1363.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 521.3657571666666,
+          "min": 500.0,
+          "median": 500.0,
+          "p95": 583.3334,
+          "p99": 600.0001,
+          "max": 916.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B2_N2000_r4_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B3_N4000_r4",
+      "config": "B3",
+      "agents": 4000,
+      "work": null,
+      "run": 4,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 23.4,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=4000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B3_N4000_r4 -UBBaseline=B3",
+      "capture": "2026-11-21_002119_baseline_B3_N4000_r4.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 3.6502461944444446,
+          "min": 2.1145,
+          "median": 3.37495,
+          "p95": 4.566975,
+          "p99": 12.013122999999979,
+          "max": 17.3551
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 4.617605055555555,
+          "min": 2.8423,
+          "median": 4.3446,
+          "p95": 5.620434999999998,
+          "p99": 12.811442,
+          "max": 17.372
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.403076416666667,
+          "min": 2.9679,
+          "median": 4.3352,
+          "p95": 5.132109999999999,
+          "p99": 6.630891999999996,
+          "max": 9.7764
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.740810972222222,
+          "min": 3.0261,
+          "median": 3.7076,
+          "p95": 4.257815,
+          "p99": 4.527305,
+          "max": 4.9512
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 260.68555555555554,
+          "min": 111.0,
+          "median": 209.0,
+          "p95": 281.0,
+          "p99": 2156.2699999999936,
+          "max": 3107.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 532.180580638889,
+          "min": 500.0,
+          "median": 516.6667,
+          "p95": 583.3334,
+          "p99": 600.0001,
+          "max": 600.0001
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B3_N4000_r4_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B0_N4000_r4",
+      "config": "B0",
+      "agents": 4000,
+      "work": null,
+      "run": 4,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 73.7,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=4000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B0_N4000_r4",
+      "capture": "2026-11-21_002119_baseline_B0_N4000_r4.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 16.718137166666665,
+          "min": 15.2148,
+          "median": 16.46705,
+          "p95": 18.598245,
+          "p99": 21.319892999999997,
+          "max": 26.1192
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 16.72971527777778,
+          "min": 15.1906,
+          "median": 16.474249999999998,
+          "p95": 18.622654999999998,
+          "p99": 21.289860999999995,
+          "max": 26.0685
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 6.81211463888889,
+          "min": 5.6712,
+          "median": 6.67,
+          "p95": 8.042324999999998,
+          "p99": 9.687864999999999,
+          "max": 15.4097
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.1941941388888893,
+          "min": 2.853,
+          "median": 3.13625,
+          "p95": 3.58694,
+          "p99": 3.8727629999999986,
+          "max": 4.2715
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 4000.0,
+          "min": 4000.0,
+          "median": 4000.0,
+          "p95": 4000.0,
+          "p99": 4000.0,
+          "max": 4000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B0_N4000_r4_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B1_N4000_r4",
+      "config": "B1",
+      "agents": 4000,
+      "work": null,
+      "run": 4,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 67.4,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=4000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B1_N4000_r4 -ExecCmds=\"tick.AllowBatchedTicks 1\"",
+      "capture": "2026-11-21_002119_baseline_B1_N4000_r4.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 15.16810663888889,
+          "min": 13.8228,
+          "median": 14.95945,
+          "p95": 16.896715,
+          "p99": 18.056171,
+          "max": 20.2594
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 15.179856333333333,
+          "min": 13.757,
+          "median": 14.9652,
+          "p95": 16.903805000000002,
+          "p99": 18.157642999999997,
+          "max": 20.0058
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 6.6199577777777785,
+          "min": 5.6136,
+          "median": 6.47065,
+          "p95": 7.802744999999999,
+          "p99": 8.747743,
+          "max": 10.3589
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.2117709166666666,
+          "min": 2.8668,
+          "median": 3.14945,
+          "p95": 3.585215,
+          "p99": 3.7849149999999994,
+          "max": 4.4283
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 4000.0,
+          "min": 4000.0,
+          "median": 4000.0,
+          "p95": 4000.0,
+          "p99": 4000.0,
+          "max": 4000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B1_N4000_r4_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_002119_baseline_B2_N4000_r4",
+      "config": "B2",
+      "agents": 4000,
+      "work": null,
+      "run": 4,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 22.4,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=4000 -UBSeed=1 -UBWarmup=10.0 -UBCapture=60.0 -UBRunTag=2026-11-21_002119_baseline_B2_N4000_r4 -UBBaseline=B2",
+      "capture": "2026-11-21_002119_baseline_B2_N4000_r4.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 3600,
+          "mean": 3.4905985555555556,
+          "min": 1.8492,
+          "median": 3.1536999999999997,
+          "p95": 5.1682749999999995,
+          "p99": 11.907813999999995,
+          "max": 15.2913
+        },
+        "FrameTime": {
+          "n": 3600,
+          "mean": 4.390192416666666,
+          "min": 2.7317,
+          "median": 4.06055,
+          "p95": 6.006364999999999,
+          "p99": 12.489595999999997,
+          "max": 17.2704
+        },
+        "RenderThreadTime": {
+          "n": 3600,
+          "mean": 4.179511916666667,
+          "min": 2.6295,
+          "median": 4.0465,
+          "p95": 5.503915,
+          "p99": 6.631917999999992,
+          "max": 17.2347
+        },
+        "GPUTime": {
+          "n": 3600,
+          "mean": 3.4218911111111114,
+          "min": 2.86,
+          "median": 3.3874,
+          "p95": 3.9259049999999998,
+          "p99": 4.19571,
+          "max": 4.5072
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 3600,
+          "mean": 260.68555555555554,
+          "min": 111.0,
+          "median": 209.0,
+          "p95": 281.0,
+          "p99": 2156.2699999999936,
+          "max": 3107.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 3600,
+          "mean": 532.180580638889,
+          "min": 500.0,
+          "median": 516.6667,
+          "p95": 583.3334,
+          "p99": 600.0001,
+          "max": 600.0001
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "GC": 1,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_002119_baseline_B2_N4000_r4_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    }
+  ]
+}

@@ -6,5 +6,5 @@ set "UE_ROOT=C:\Program Files\Epic Games\UE_5.8"
 set "PROJECT=%~dp0..\UpdateBudget\UpdateBudget.uproject"
 set "LOG=%~dp0..\UpdateBudget\Saved\Logs\SmokeGame.log"
 
-"%UE_ROOT%\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" "%PROJECT%" -game -nullrhi -nosound -unattended -nosplash -traceautostart=0 -ExitAfterSeconds=0 -ExecCmds="quit" -log -abslog="%LOG%" %*
+"%UE_ROOT%\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" "%PROJECT%" -game -nullrhi -nosound -unattended -nosplash -traceautostart=0 -ExecCmds="quit" -log -abslog="%LOG%" %*
 exit /b %ERRORLEVEL%

@@ -90,7 +90,10 @@ Same build and environment as S2 (packaged Development, real GPU, 1280×720, fix
 | S3-c | **B2 and B3 behave identically** (they share bands, view and setter) | ✅ Over the 480 captured frames: 2,382 band changes in both, 68,024 updates in both (median 136 per frame, against 1,000 in B0/B1), identical per-agent ages at the end of the run (median 66.7 ms, max 550 ms) and identical state changes (647; 651 in B0/B1) |
 | S3-d | **The S3 clean-up changed no behaviour** (batch `2026-11-21_001816_s3smoke2`, after the simplify fixes, against S3-b) | ✅ Every count in S3-c is identical in both batches, for all four configurations. No `ensure` fired |
 | S3-e | **The re-tune cost is measured** | ✅ `UBBaseline/GameThread/Retune` at N = 1,000: median 0.105 ms (B2), 0.139 ms (B3); p99 0.49 ms (B2), 0.51 ms (B3). `Register` is near zero after the first frame. One run each: a sanity check, **not** evidence |
-| S3-f | **The baseline matrix** | Batch `2026-11-21_002119_baseline`: B0–B3 × N = 100 / 1,000 / 2,000 / 4,000 × 6 interleaved runs + priming, warm-up 10 s, capture 60 s. Results below once the batch has finished |
+| S3-f | **The baseline matrix, first capture** | Batch `2026-11-21_002119_baseline`: B0–B3 × N = 100 / 1,000 / 2,000 / 4,000, warm-up 10 s, capture 60 s. Started with 6 runs, then **stopped cleanly after round 4** when the protocol changed to 4 balanced runs (with 4 configs, rounds 1–4 put every config in every order position once). 64 measured runs + priming, 0 failures, 0 log errors. **B0/B1 at N ≥ 1,000 are not usable as evidence** (S3-g); B2/B3 behaviour and the H4/H6 results are (below) |
+| S3-g | **Finding: game thread on an E-core** | B0/B1 runs sat at two stable levels about 1.6× apart (table below), and one run stepped between them mid-capture. This i7-14650HX is hybrid (8 P-cores + 8 E-cores), and Windows sometimes ran the game thread on an E-core. **Fix:** every run is pinned to the P-cores (mask `0xFFFF`), recorded per run (05 E5) |
+| S3-h | **The fix, validated** | Batch `2026-11-21_012231_affinitycheck` (B0, B1 × N = 2,000 / 4,000 × 4, capture 20 s, pinned): the two levels are gone (table below) |
+| S3-i | **The baseline matrix, re-captured pinned** | Batch `…_baseline_pinned`: B0–B3 × N = 1,000 / 2,000 / 4,000 × 4 runs + priming. Results are added here when it finishes |
 
 **Smoke-batch GameThreadTime medians (ms).** One run per configuration, so these only show that each mode works. They are **not results**: run-to-run spread is unknown at this sample size, and the two batches disagree on whether B2 or B3 is cheaper.
 
@@ -122,6 +125,97 @@ Same build and environment as S2 (packaged Development, real GPU, 1280×720, fix
   - Iterating `GetAgents()` in B2 instead of `Brains`: it would add a pointer chase per agent per frame.
   - Changing the brain's per-agent camera lookup: it is part of the calibrated workload.
 - Re-verified by S3-a and S3-d.
+
+
+### S3 batch: what it shows
+
+**S3-g evidence.** Each B0/B1 run cut into 10 equal parts, median `GameThreadTime` (ms) per part (`2026-11-21_002119_baseline`):
+
+| Run | Parts 1 → 10 | Level |
+|---|---|---|
+| B0 N = 4,000 r1 | 16.8 17.1 18.5 **26.9** 26.3 27.7 26.4 26.9 26.4 26.8 | P-core, then **steps** to the slow level |
+| B0 N = 4,000 r3 | 29.2 27.8 28.7 28.8 27.9 27.7 28.3 28.2 29.2 28.3 | slow (E-core) |
+| B0 N = 4,000 r4 | 16.7 16.5 16.8 16.6 16.5 16.2 16.4 16.3 16.4 16.5 | fast (P-core) |
+| B1 N = 2,000 r1 / r2 | 8.6 … 9.3 / 13.5 … 12.8 | fast / slow |
+
+Flat within each part and a clean step between levels, about 1.6× apart, is the signature of a thread moving between core types. Thermal throttling would show as a gradual ramp. Rounds 1–2 ran before the other projects' agents started and already show both levels, so the agents' activity is not the cause.
+
+**S3-h, pinned to the P-cores** (`GameThreadTime` median, ms; 4 runs each):
+
+| | First capture (not pinned) | Pinned |
+|---|---|---|
+| B0 N = 2,000 | 9.6 – 16.2 | **9.09 – 9.69** |
+| B0 N = 4,000 | 16.5 – 28.3 | **16.2 – 18.0** |
+| B1 N = 2,000 | 8.8 – 14.0 | **8.14 – 9.06** |
+| B1 N = 4,000 | 15.0 – 24.7 | **14.8 – 15.9** |
+
+The remaining spread of 5–10% drifts slightly upwards over the batch (laptop thermals); interleaving spreads it evenly over the configs.
+
+**H4 · periodic update spikes (B2/B3): confirmed.** The per-frame update count repeats with the band intervals. The counts are identical in every run (fixed step, same camera path), and identical between B2 and B3:
+
+| N | UpdatesRun median | max | max / median | autocorrelation at 0.1 s (lag 6) | at 0.5 s (lag 30) |
+|---|---|---|---|---|---|
+| 100 | 41 | 63 | 1.54 | 0.99 | 0.95 |
+| 1,000 | 130 | 691 | 5.32 | 0.87 | 0.97 |
+| 2,000 | 172 | 1,363 | 7.92 | 0.30 | 0.98 |
+| 4,000 | 209 | 3,107 | 14.87 | 0.05 | 0.99 |
+
+Agents that got the same interval at the same moment stay in phase, so every 0.5 s a large group ticks together: at N = 4,000 that is 3,107 updates in one frame against a median of 209. This explains why B2/B3's p99 `GameThreadTime` at N = 4,000 (about 17–18 ms) is far above their median (3.6–3.9 ms). It is exactly the frame-time spike UpdateBudget's deadline spreading should remove (SC1, SC4). **This is a single-machine measurement** of one workload, and the spike size depends on how the agents enter their bands.
+
+**H6 · re-tune cost (B2/B3)** (`UBBaseline/GameThread/Retune`, ms, median [min–max] over 4 runs):
+
+| N | B2 median | B2 p99 | B3 median | B3 p99 | Band changes per frame |
+|---|---|---|---|---|---|
+| 100 | 0.009 | 0.019 | 0.024 | 0.065 | 0.08 |
+| 1,000 | 0.079 | 0.312 | 0.110 | 0.363 | 0.90 |
+| 2,000 | 0.165 | 0.531 | 0.237 | 0.619 | 1.55 |
+| 4,000 | 0.407 | 1.020 | 0.432 | 1.121 | 2.29 |
+
+The driver's own re-tuning grows roughly linearly with N, at about 0.1 µs per agent per frame. The Significance Manager path (B3) costs a little more at low N. The tick manager's cooling-down list cost is inside `GameThreadTime`, not in this column; Insights is used for it in Phase 8.
+
+**H1 · what tick batching saves (B0 − B1):** deferred to the pinned re-capture. At N = 1,000 the first capture gave 0.454 [0.364–0.499] ms per frame, but its B0/B1 numbers carry the E-core problem.
+
+---
+
+## Step S4 · The scheduling policy (2026-11-21)
+
+| # | Check | Result |
+|---|---|---|
+| S4-a | **Build** | ✅ Development editor target, 0 errors, 0 warnings (`UpdateBudgetScheduler.cpp` and the test file compiled; 4.2 s with the build accelerator) |
+| S4-b | **Automation tests** (`Tools\run_tests.bat UpdateBudget.Scheduler`, headless, through the job queue) | ✅ 8 / 8 passed: NoClients, DeadlineOrder, BudgetCutOff, MandatoryBeatsBudget, ZeroBudget, CostPrediction, CategoryFallback, NoStarvation. `TEST COMPLETE. EXIT CODE: 0` |
+| S4-c | **After the code-review and simplify fixes** (NaN guard in the constructor and in Run, real overload in NoStarvation, raw-pointer comparator, Lerp, MandatoryRuns set once; AndroidFileServer disabled) | ✅ Rebuild: 0 errors, 0 warnings. Tests: **8 / 8 passed**, `TEST COMPLETE. EXIT CODE: 0`. The config was not re-written with a `SecurityToken`. The log showed one tool warning (`-ReportOutputPath=` is deprecated); `run_tests.bat` now passes `-ReportExportPath=` (verified at `AutomationControllerManager.cpp:233`), and the next test run (S5) exercises it |
+
+**Audit trail for S4:**
+- `code-review` (medium) raised 9 findings: 3 important, 6 minor.
+  - The important ones: the one-run default, H1 pairing by list position, and a game left running after Ctrl+C.
+  - The minor ones: the per-run launch record, workloads pooled in the analysis, a NaN cost poisoning the moving average, a starvation test that never overloaded, missing docs, and 02's diagram not matching `Run`.
+- All nine are fixed (05 E2/E3/E5/E6, 02 §6).
+- One more bug was found by P03 (UE5-TestTrust): `start /wait` always returns 0. Also fixed (05 E5, 07).
+- `simplify` (4 parallel reviews):
+  - **Scheduler:**
+    - one `SanitiseCostMs` for the constructor and `Run` (the constructor was a second way in for NaN);
+    - `MandatoryRuns = NumMandatory`;
+    - raw pointer reads in the sort comparator;
+    - `FMath::Lerp`;
+    - array `Init` in the NoStarvation test.
+  - **`run_bench.py`:**
+    - the batch pins itself once and the games inherit the mask;
+    - one Windows-guarded `KERNEL32` setup;
+    - a one-pass core-mask builder;
+    - `math.ceil`;
+    - the docstring no longer states the runs rule wrongly.
+  - **`analyse_baselines.py`:**
+    - reuses `csv_stats.column_values` and `summarize`, and the manifest's own statistics;
+    - `table()`/`col()` helpers;
+    - `LAGS` drives the H4 columns.
+
+    Its output was verified **identical, byte for byte,** on the 64-run baseline batch.
+  - **Skipped, with reasons:**
+    - Keeping last frame's sort order as the starting point (measured about 2× faster sorting in a clang copy): the real subsystem recomputes every deadline each frame, so the gain must be measured in Phase 8 (11).
+    - `Algo::LowerBoundBy` for the mandatory prefix: the scan costs 1–3 µs and is clear.
+    - Sorting (deadline, index) pairs: only 3–6% faster.
+    - A shared `cell()` in `csv_stats`: outside this change.
+    - `launch()` returning a dict: no longer needed once the 5-tuple went away.
 
 ---
 

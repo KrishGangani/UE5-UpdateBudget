@@ -7,9 +7,15 @@ Every number in this project's write-up must trace back to a file in this folder
 1. **Baselines first.** B0–B3 are captured before the scheduler exists, on the same workload, build and machine as every later run.
 2. **Packaged Development build only** (never PIE, never the editor). The launcher engine can't build the Test configuration.
 3. **Fixed step** (`-deterministic -FPS=60`), so every run simulates the same frames. The capture window is opened and closed by the game itself (`BenchStart` / `BenchEnd` CSV events), never by a timer.
-4. **One discarded priming run per batch**, then **6 runs per combination, interleaved** (the config order rotates every round, so laptop thermal drift is spread over all configs).
-5. **Statistics:** median, p95 and p99 per run (linear-interpolation percentiles, `Tools/csv_stats.py`), then the median across runs with the [min–max] across runs. FPS is never used as evidence.
-6. **The environment is recorded with every batch** (below), automatically, by `Tools/run_bench.py`.
+4. **One discarded priming run per batch**, then **interleaved runs, with the config order rotated every round**.
+   - **Runs per combination** = the smallest multiple of the number of configs that is at least 4, so every config sits in every order position equally often: 4 for B0–B3, 5 with UB.
+   - Combinations that no success criterion needs are skipped.
+5. **Every run is pinned to the performance cores** (logical CPUs 0–15, mask `0xFFFF`) and the applied mask is recorded per run.
+   - This CPU is hybrid, and Windows sometimes put the game thread on an E-core, making a run about 1.6× slower (09, step S3).
+   - The game executable is launched directly, so its exit code is real and a hung run is always killed.
+   - While a batch runs, the display and system are kept awake for that process only. No power settings are changed.
+6. **Statistics:** median, p95 and p99 per run (linear-interpolation percentiles, `Tools/csv_stats.py`), then the median across runs with the [min–max] across runs. FPS is never used as evidence.
+7. **The environment is recorded with every batch** (below), automatically, by `Tools/run_bench.py`.
 
 ## Folders
 
@@ -25,7 +31,7 @@ Every number in this project's write-up must trace back to a file in this folder
 - `<Config>`: `B0` native tick · `B1` batched ticks · `B2` distance interval · `B3` Significance Manager · `UB` UpdateBudget (plus `UB-1ms` / `UB-4ms` for budget sweeps).
 - Example: `2026-11-25_101500_B0_N2000_r1.csv` (+ `_agents.csv` per-agent report + `.log`), `2026-11-25_101500_manifest.json` in `Raw\`, and `2026-11-25_101500_summary.md` in `Summaries\`.
 - `_r0_prime` files are the discarded priming run. They are kept for transparency and excluded from every summary.
-- **How to run a batch:** `python Tools\run_bench.py --configs B0,B1 --agents 1000,2000 --runs 6` (packaged Development build required: `Tools\package.bat`).
+- **How to run a batch:** `python Tools\run_bench.py --configs B0,B1,B2,B3 --agents 1000,2000,4000` (packaged Development build required: `Tools\package.bat`; on the development machine every batch runs as one job of the shared UE job queue, so nothing else can run beside it).
 
 ## Environment record (written into every manifest and summary)
 
@@ -39,7 +45,8 @@ OS:                Windows 11 build 26200
 Power:             AC, power plan "Turbo"
 Resolution:        1280x720 windowed, default scalability, no VSync, no sound
 Command line:      exact, per run, in the manifest
-Warm-up excluded:  10 s     Capture length: 60 s     Runs per combination: 6 (interleaved) + 1 priming run per batch
+Warm-up excluded:  10 s     Capture length: 60 s     Runs per combination: a multiple of the config count, at least 4 (interleaved) + 1 priming run per batch
+CPU affinity:      performance cores only (0xFFFF), recorded per run
 ```
 
 ## Run log

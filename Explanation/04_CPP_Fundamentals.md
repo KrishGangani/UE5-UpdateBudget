@@ -114,3 +114,29 @@ auto Count  = [this](int N) { Total += N; };               // captures the objec
 - **The capture list** (`[]`, `[this]`, `[&]`, `[=]`) decides what the lambda can reach from where it was written. Capturing `this` copies only a pointer, so **the object must outlive every copy of the lambda**.
 - **Copies:** storing a lambda in a `TFunction` (as `USignificanceManager::RegisterObject` does) copies it. Defining the lambda once and passing it many times makes one object that is copied per registration.
 - **In our code (S3):** the B3 significance function captures nothing: it runs on worker threads and touches only its arguments. The post-significance function captures `this` to call `SetIntervalIfChanged`. That is safe because every registration is removed (in `HandleAgentEndPlay` or `OnWorldEndPlay`) before the driver is destroyed (05 Part D).
+
+## 14. `explicit` constructors and default arguments
+
+```cpp
+struct FScheduler { explicit FScheduler(int32 Categories = 1, double Alpha = 0.2); };
+FScheduler A;          // defaults: 1 category, alpha 0.2
+FScheduler B(4);       // 4 categories, alpha 0.2
+// FScheduler C = 4;   // error: explicit forbids the silent int -> FScheduler conversion
+```
+- **In our code (S4):** `FUpdateBudgetScheduler(int32 NumCategories = 1, double InitialCostMs = 0.005, double SmoothingAlpha = 0.2)`. Tests choose only what they care about, and an `int` can never turn into a scheduler by accident.
+
+## 15. Type aliases with `using`
+
+```cpp
+using FRunClient = TFunctionRef<double(int32 ClientIndex)>;   // a readable name for a long type
+```
+- **In our code (S4):** `FUpdateBudgetScheduler::FRunClient`. It documents what the callback means (run client *i*, return its cost) wherever it's used.
+
+## 16. Aggregate initialisation and `std::initializer_list`
+
+```cpp
+struct FState { double Deadline = 0.0; int32 Category = 0; };
+FState S{ 2.5, 1 };                                        // fills the members in order
+void Make(std::initializer_list<double> Values);           // lets callers write Make({ 1.0, 2.0, 3.0 })
+```
+- **In our code (S4 tests):** `Clients.Add({ Deadline, 0 })` and `MakeClients({ 5.0, 1.0, 3.0 })` make test inputs short enough to read at a glance. Members with defaults (`= 0.0`) can still be aggregate-initialised since C++14.

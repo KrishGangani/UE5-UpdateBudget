@@ -18,6 +18,10 @@
 		{
 			"Name": "SignificanceManager",
 			"Enabled": true
+		},
+		{
+			"Name": "AndroidFileServer",
+			"Enabled": false
 		}
 	]
 }
