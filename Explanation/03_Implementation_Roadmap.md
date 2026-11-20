@@ -10,7 +10,7 @@
 
 ---
 
-**Progress (2026-11-21):** Phase 4 ✅ (F1–F3). **S1 ✅**, **S2 ✅**, **S3 code ✅**, **S4 ✅** (each passed code review and fixes; S1, S3 and S4 also passed simplify). The first S3 baseline capture found the E-core problem (09 S3-g); the pinned re-capture is queued. Next: **S5** (subsystem, tick function, registry), then H1/H6 from the pinned batch.
+**Progress (2026-11-21):** Phase 4 ✅ (F1–F3). **S1 ✅**, **S2 ✅**, **S3 code ✅**, **S4 ✅** (each passed code review and fixes; S1, S3 and S4 also passed simplify). The first S3 baseline capture found the E-core problem (09 S3-g); the pinned re-capture (09 S3-i, batch `2026-11-21_015041_baseline_pinned`) is the baseline UpdateBudget is measured against, and it answered H1, H4 and H6. Next: **S5** (subsystem, tick function, registry).
 
 ## Phase 4: Foundation (no gameplay code yet) ✅
 

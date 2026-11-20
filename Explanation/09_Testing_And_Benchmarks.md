@@ -93,7 +93,7 @@ Same build and environment as S2 (packaged Development, real GPU, 1280×720, fix
 | S3-f | **The baseline matrix, first capture** | Batch `2026-11-21_002119_baseline`: B0–B3 × N = 100 / 1,000 / 2,000 / 4,000, warm-up 10 s, capture 60 s. Started with 6 runs, then **stopped cleanly after round 4** when the protocol changed to 4 balanced runs (with 4 configs, rounds 1–4 put every config in every order position once). 64 measured runs + priming, 0 failures, 0 log errors. **B0/B1 at N ≥ 1,000 are not usable as evidence** (S3-g); B2/B3 behaviour and the H4/H6 results are (below) |
 | S3-g | **Finding: game thread on an E-core** | B0/B1 runs sat at two stable levels about 1.6× apart (table below), and one run stepped between them mid-capture. This i7-14650HX is hybrid (8 P-cores + 8 E-cores), and Windows sometimes ran the game thread on an E-core. **Fix:** every run is pinned to the P-cores (mask `0xFFFF`), recorded per run (05 E5) |
 | S3-h | **The fix, validated** | Batch `2026-11-21_012231_affinitycheck` (B0, B1 × N = 2,000 / 4,000 × 4, capture 20 s, pinned): the two levels are gone (table below) |
-| S3-i | **The baseline matrix, re-captured pinned** | Batch `…_baseline_pinned`: B0–B3 × N = 1,000 / 2,000 / 4,000 × 4 runs + priming. Results are added here when it finishes |
+| S3-i | **The baseline matrix, re-captured pinned** | ✅ Batch `2026-11-21_015041_baseline_pinned`: B0–B3 × N = 1,000 / 2,000 / 4,000 × 4 interleaved runs + priming, warm-up 10 s, capture 60 s, every run pinned (`0xFFFF`, read back). 48 measured runs, **0 failures, 0 log errors**, 5 PSO events per run (no hitch, S2-g). **The two-level pattern is gone:** cut into 10 parts, no B0/B1 run varies by more than 1.19× between its parts (the first capture stepped by 1.6×). 22 of 24 stay within 1.09×; the two exceptions are round 1 at N = 1,000 (1.19× and 1.12×), noisy rather than stepped. Results in the table below; this batch is **the baseline UpdateBudget is compared against** (SC4) |
 
 **Smoke-batch GameThreadTime medians (ms).** One run per configuration, so these only show that each mode works. They are **not results**: run-to-run spread is unknown at this sample size, and the two batches disagree on whether B2 or B3 is cheaper.
 
@@ -151,6 +151,29 @@ Flat within each part and a clean step between levels, about 1.6× apart, is the
 
 The remaining spread of 5–10% drifts slightly upwards over the batch (laptop thermals); interleaving spreads it evenly over the configs.
 
+**S3-i, the pinned baseline matrix** (`2026-11-21_015041_baseline_pinned`, `GameThreadTime` in ms, median across 4 runs [min–max across runs]; summary and analysis in `Benchmarks/Summaries/`):
+
+| Config | N | median | p95 | p99 |
+|---|---|---|---|---|
+| B0 native, every frame | 1,000 | 5.772 [5.727–6.480] | 6.779 [6.715–7.767] | 7.161 [6.993–8.565] |
+| | 2,000 | 10.016 [9.813–10.298] | 11.032 [10.696–11.948] | 11.575 [11.223–12.943] |
+| | 4,000 | 17.322 [17.151–17.670] | 18.735 [18.478–19.392] | 19.746 [19.276–20.720] |
+| B1 batched ticks | 1,000 | 5.400 [5.345–5.726] | 6.445 [6.358–6.846] | 6.841 [6.664–7.372] |
+| | 2,000 | 9.221 [9.169–9.717] | 10.301 [10.024–11.041] | 10.943 [10.617–11.705] |
+| | 4,000 | 16.155 [15.476–16.349] | 17.586 [16.748–17.791] | 18.635 [17.661–18.849] |
+| B2 distance bands | 1,000 | 2.288 [2.208–2.405] | 3.159 [3.047–3.414] | 3.846 [3.663–4.060] |
+| | 2,000 | **2.641** [2.578–2.733] | **3.623** [3.551–3.729] | 5.660 [5.412–5.824] |
+| | 4,000 | **3.312** [3.260–3.416] | **4.511** [4.323–4.612] | 12.445 [11.926–12.674] |
+| B3 Significance Manager | 1,000 | 2.353 [2.169–2.523] | 3.229 [2.997–3.495] | 3.942 [3.739–4.230] |
+| | 2,000 | 2.766 [2.758–2.780] | 3.691 [3.664–3.714] | 5.579 [5.508–5.808] |
+| | 4,000 | 3.488 [3.369–3.538] | 4.556 [4.280–4.771] | 12.762 [12.491–13.177] |
+
+What it shows:
+- **The best baseline at N ≥ 2,000 is B2** by median and p95 (bold), the numbers SC4 asks UpdateBudget to beat. At N = 2,000 its median range sits below B3's without overlap; at N = 4,000 the two ranges overlap, so B2 and B3 are equally good there.
+- **B0 crosses the 16.67 ms frame at N = 4,000** (median 17.3 ms), as the S2 calibration predicted.
+- **The interval baselines' p99 is the H4 spike:** at N = 4,000 their p99 (12.4–12.8 ms) is almost 4× their median, against 1.14× for B0.
+- **Run-to-run spread is small except in round 1.** B0 at N = 1,000 has one high run (r1, 6.48 ms against 5.73–5.80 for the other three). That run has no step, only noisier parts (5.9–7.0 ms). The drift check finds rounds 1–2 about 0.2–0.4 ms slower than rounds 3–4 for B0/B1 at N ≤ 2,000. The cause is not known; the interleaving spreads it over every config.
+
 **H4 · periodic update spikes (B2/B3): confirmed.** The per-frame update count repeats with the band intervals. The counts are identical in every run (fixed step, same camera path), and identical between B2 and B3:
 
 | N | UpdatesRun median | max | max / median | autocorrelation at 0.1 s (lag 6) | at 0.5 s (lag 30) |
@@ -171,9 +194,17 @@ Agents that got the same interval at the same moment stay in phase, so every 0.5
 | 2,000 | 0.165 | 0.531 | 0.237 | 0.619 | 1.55 |
 | 4,000 | 0.407 | 1.020 | 0.432 | 1.121 | 2.29 |
 
-The driver's own re-tuning grows roughly linearly with N, at about 0.1 µs per agent per frame. The Significance Manager path (B3) costs a little more at low N. The tick manager's cooling-down list cost is inside `GameThreadTime`, not in this column; Insights is used for it in Phase 8.
+The driver's own re-tuning grows roughly linearly with N, at about 0.1 µs per agent per frame. The Significance Manager path (B3) costs a little more at low N. The tick manager's cooling-down list cost is inside `GameThreadTime`, not in this column; Insights is used for it in Phase 8. (This table is from the first capture. The pinned re-capture gives Retune medians of 0.058 / 0.148 / 0.365 ms for B2 and 0.095 / 0.194 / 0.410 ms for B3 at N = 1,000 / 2,000 / 4,000, the same picture; the H4 update counts are identical in both batches, as a fixed step requires.)
 
-**H1 · what tick batching saves (B0 − B1):** deferred to the pinned re-capture. At N = 1,000 the first capture gave 0.454 [0.364–0.499] ms per frame, but its B0/B1 numbers carry the E-core problem.
+**H1 · what tick batching saves (B0 − B1), from the pinned re-capture** (`GameThreadTime` median, per-run differences paired by run index, median [min–max]):
+
+| N | B0 − B1 (ms per frame) | Per tick |
+|---|---|---|
+| 1,000 | 0.382 [0.362–0.754] | 0.38 µs |
+| 2,000 | 0.647 [0.492–1.029] | 0.32 µs |
+| 4,000 | 1.326 [1.004–1.675] | 0.33 µs |
+
+**H1 is supported:** per-tick dispatch has a cost, and engine batching removes about 0.3–0.4 µs of it per tick, growing linearly with N. This is a lower bound on the dispatch overhead, because batching doesn't remove all of it. It agrees with Epic Games Japan's published figure of about 0.3 µs per tick (`01b` §5), which was measured in a DevelopmentEditor build; ours is a packaged Development build. It is only 6–8% of B0's frame: the real cost at this workload is the updates themselves, which is why the interval baselines (B2/B3) are 2.5× (N = 1,000) to 5× (N = 4,000) cheaper than B0. (The first, unpinned capture gave 0.454 ms at N = 1,000, carrying the E-core problem.)
 
 ---
 
