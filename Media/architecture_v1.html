@@ -1,0 +1,318 @@
+<title>UpdateBudget</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single reading column of engineering figures, each with a claim-first caption; profiler-trace palette. */
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --ink: #18202c;
+  --muted: #5d6879;
+  --line: #c9d1dc;
+  --accent: #2c58c9;        /* our system: scheduler, budgeted path */
+  --accent-soft: #e3eafb;
+  --amber: #b26d12;         /* mandatory work, budget line */
+  --amber-soft: #f6e6cf;
+  --font-display: "Archivo", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #11151c; --surface: #181e28; --ink: #e3e8f0; --muted: #9aa5b6; --line: #333d4c;
+    --accent: #84a6ff; --accent-soft: #1f2a45; --amber: #e3a34b; --amber-soft: #3a2b16;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #11151c; --surface: #181e28; --ink: #e3e8f0; --muted: #9aa5b6; --line: #333d4c;
+  --accent: #84a6ff; --accent-soft: #1f2a45; --amber: #e3a34b; --amber-soft: #3a2b16;
+}
+
+html { background: var(--bg); }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1040px; margin: 0 auto; padding-block: 40px 64px; display: grid; gap: 44px; }
+header { display: grid; gap: 10px; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(34px, 5vw, 52px); line-height: 1.05; margin: 0; letter-spacing: -0.01em; }
+h2 { font-family: var(--font-display); font-weight: 600; font-size: 22px; margin: 0; text-wrap: balance; }
+.lede { max-width: 68ch; margin: 0; font-size: 18px; }
+.status { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.chip { font-family: var(--font-mono); font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); background: var(--surface); }
+.chip.done { color: var(--accent); border-color: var(--accent); }
+section { display: grid; gap: 14px; }
+section > p { max-width: 70ch; margin: 0; }
+figure { margin: 0; display: grid; gap: 12px; }
+.fig { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; overflow-x: auto; }
+.fig svg { display: block; width: 100%; min-width: 720px; height: auto; color: var(--ink); }
+figcaption { max-width: 72ch; color: var(--muted); font-size: 15px; }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+
+/* SVG roles, all from tokens */
+.grp { fill: none; stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 5 4; }
+.grp-l { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; fill: var(--muted); }
+.n { fill: var(--surface); stroke: var(--ink); stroke-width: 1.2; }
+.n.key { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.6; }
+.t { font-family: var(--font-body); font-weight: 600; font-size: 14px; fill: var(--ink); }
+.s { font-family: var(--font-mono); font-size: 10.5px; fill: var(--muted); }
+.e { fill: none; stroke: var(--ink); stroke-width: 1.3; }
+.e.acc { stroke: var(--accent); stroke-width: 1.7; }
+.e.dash { stroke-dasharray: 5 4; }
+.lbl { font-family: var(--font-mono); font-size: 10.5px; fill: var(--ink); }
+.lbl.acc { fill: var(--accent); }
+.lbl.mut { fill: var(--muted); }
+.mk { fill: var(--ink); }
+.mk.acc { fill: var(--accent); }
+.seg { fill: var(--surface); stroke: var(--line); }
+.seg.on { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.6; }
+.seg-t { font-family: var(--font-mono); font-size: 10.5px; fill: var(--ink); }
+.axis { stroke: var(--ink); stroke-width: 1.2; }
+.tick { stroke: var(--muted); stroke-width: 1; }
+.tick-t { font-family: var(--font-mono); font-size: 10px; fill: var(--muted); }
+.band { fill: var(--amber-soft); }
+.amber-fill { fill: var(--amber); }
+.amber-t { font-family: var(--font-mono); font-size: 10.5px; fill: var(--amber); }
+.acc-fill { fill: var(--accent); }
+.num { font-family: var(--font-mono); font-size: 10px; font-weight: 500; fill: var(--surface); }
+.hollow { fill: var(--surface); stroke: var(--muted); stroke-width: 1.4; }
+.over { fill: none; stroke: var(--muted); stroke-width: 1.3; stroke-dasharray: 4 3; }
+.budget { stroke: var(--amber); stroke-width: 2; }
+
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+.tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+tr:last-child td { border-bottom: 0; }
+td.cfg { font-family: var(--font-mono); font-weight: 500; white-space: nowrap; }
+tr.ours td { background: var(--accent-soft); }
+tr.ours td.cfg { color: var(--accent); }
+.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.rule { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 4px; }
+.rule b { font-weight: 600; }
+.rule span { color: var(--muted); font-size: 15px; }
+footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); padding-top: 16px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Project 01 · Architecture v1.0 · Unreal Engine 5.8.4</div>
+    <h1>UpdateBudget</h1>
+    <p class="lede">A frame-time budget for gameplay logic. Every agent gets a deadline from its significance. Each frame the scheduler runs the agents that would otherwise miss their deadline, then the rest in deadline order, until the next update would not fit in the budget.</p>
+    <div class="status">
+      <span class="chip done">1 Problem ✓</span><span class="chip done">2 Research ✓</span><span class="chip done">3 Architecture ✓</span>
+      <span class="chip done">4 Foundation ✓</span><span class="chip">5 Implementation: step S3 of 8</span><span class="chip">No results yet</span>
+    </div>
+  </header>
+
+  <section>
+    <h2>How the pieces talk</h2>
+    <figure>
+      <div class="fig">
+        <svg viewBox="0 0 1000 510" role="img" aria-label="Module map: the plugin's tick function calls the subsystem, which asks the pure scheduling policy what to run and calls the agent component's update; the game module depends on the plugin only through the agent brain, which is an agent component.">
+          <defs>
+            <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk" d="M0,0 L10,5 L0,10 z"/></marker>
+            <marker id="aha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk acc" d="M0,0 L10,5 L0,10 z"/></marker>
+          </defs>
+          <rect class="grp" x="16" y="36" width="600" height="460" rx="12"/>
+          <text class="grp-l" x="32" y="60">PLUGIN · UpdateBudgetCore (reusable)</text>
+          <rect class="grp" x="646" y="36" width="338" height="460" rx="12"/>
+          <text class="grp-l" x="662" y="60">GAME MODULE · UpdateBudget (demo + benchmark)</text>
+
+          <rect class="n" x="40" y="86" width="260" height="56" rx="8"/>
+          <text class="t" x="56" y="110">Tick function in TG_PrePhysics</text>
+          <text class="s" x="56" y="129">FUpdateBudgetTickFunction</text>
+
+          <rect class="n" x="40" y="210" width="260" height="56" rx="8"/>
+          <text class="t" x="56" y="234">World subsystem</text>
+          <text class="s" x="56" y="253">UUpdateBudgetSubsystem</text>
+
+          <rect class="n key" x="380" y="210" width="210" height="56" rx="8"/>
+          <text class="t" x="396" y="234">Scheduling policy</text>
+          <text class="s" x="396" y="253">FUpdateBudgetScheduler</text>
+
+          <rect class="n" x="380" y="420" width="210" height="56" rx="8"/>
+          <text class="t" x="396" y="444">Agent component</text>
+          <text class="s" x="396" y="463">UBudgetedUpdateComponent</text>
+
+          <path class="e acc" d="M170,142 V206" marker-end="url(#aha)"/>
+          <text class="lbl acc" x="180" y="179">RunFrame(dt)</text>
+          <path class="e acc" d="M300,228 H376" marker-end="url(#aha)"/>
+          <text class="lbl acc" x="340" y="221" text-anchor="middle">Run()</text>
+          <path class="e acc" d="M380,250 H304" marker-end="url(#aha)"/>
+          <text class="lbl acc" x="340" y="263" text-anchor="middle">RunClient(i)</text>
+          <path class="e acc" d="M150,266 V448 H376" marker-end="url(#aha)"/>
+          <text class="lbl acc" x="264" y="440" text-anchor="middle">OnBudgetedUpdate(dt)</text>
+          <path class="e" d="M430,420 V300 H220 V270" marker-end="url(#ah)"/>
+          <text class="lbl" x="325" y="293" text-anchor="middle">Register / Unregister</text>
+
+          <rect class="n" x="670" y="86" width="250" height="56" rx="8"/>
+          <text class="t" x="686" y="110">Benchmark subsystem</text>
+          <text class="s" x="686" y="129">UUBBenchmarkSubsystem · -UB* args</text>
+
+          <rect class="n" x="670" y="180" width="250" height="56" rx="8"/>
+          <text class="t" x="686" y="204">Demo agents</text>
+          <text class="s" x="686" y="223">AUBDemoAgent · one brain each</text>
+
+          <rect class="n" x="670" y="300" width="250" height="56" rx="8"/>
+          <text class="t" x="686" y="324">Baseline driver (B2, B3)</text>
+          <text class="s" x="686" y="343">UUBBaselineDriverSubsystem</text>
+
+          <rect class="n" x="670" y="420" width="250" height="56" rx="8"/>
+          <text class="t" x="686" y="444">Agent brain</text>
+          <text class="s" x="686" y="463">UUBDemoBrainComponent</text>
+
+          <path class="e" d="M795,142 V176" marker-end="url(#ah)"/>
+          <text class="lbl" x="805" y="164">spawns N (seed)</text>
+          <path class="e" d="M920,114 H950 V328 H924" marker-end="url(#ah)"/>
+          <text class="lbl" x="956" y="224">agents</text>
+          <path class="e" d="M795,356 V416" marker-end="url(#ah)"/>
+          <text class="lbl" x="805" y="390">TickInterval (B2, B3)</text>
+          <path class="e dash" d="M670,448 H594" marker-end="url(#ah)"/>
+          <text class="lbl" x="631" y="440" text-anchor="middle">is a</text>
+        </svg>
+      </div>
+      <figcaption>The blue path runs once per frame. The scheduling policy is plain C++ with no engine objects, so its rules can be unit-tested with fake agents and fake costs. The game module reaches the plugin only through one inheritance edge. The benchmark subsystem reads the <span class="mono">-UB*</span> command-line values, spawns the agents from a fixed seed and moves the camera. The baseline driver reads <span class="mono">-UBBaseline=B2|B3</span> and adopts agents from the benchmark's append-only list. (Since step S1 one subsystem replaces the director and spawner actors of the first draft: the project has no hand-authored map to place them in.)</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Where it runs in the frame</h2>
+    <figure>
+      <div class="fig">
+        <svg viewBox="0 0 1000 260" role="img" aria-label="Frame timeline: the scheduler's tick function and the native agent component both run in TG_PrePhysics; the component default of TG_DuringPhysics and a tickable subsystem, which runs after PostPhysics, were rejected.">
+          <text class="acc-t lbl acc" x="40" y="54">UB: the scheduler's own tick function</text>
+          <text class="lbl" x="40" y="74">B0–B3: the agent component, pinned here</text>
+          <line class="e acc" x1="97" y1="82" x2="97" y2="106"/>
+
+          <rect class="seg on" x="40" y="110" width="113" height="40"/>
+          <rect class="seg" x="155" y="110" width="113" height="40"/>
+          <rect class="seg" x="270" y="110" width="113" height="40"/>
+          <rect class="seg" x="385" y="110" width="113" height="40"/>
+          <rect class="seg" x="500" y="110" width="113" height="40"/>
+          <rect class="seg" x="615" y="110" width="113" height="40"/>
+          <rect class="seg" x="730" y="110" width="113" height="40"/>
+          <rect class="seg" x="845" y="110" width="113" height="40"/>
+          <text class="seg-t" x="96" y="134" text-anchor="middle">PrePhysics</text>
+          <text class="seg-t" x="211" y="134" text-anchor="middle">StartPhysics</text>
+          <text class="seg-t" x="326" y="134" text-anchor="middle">DuringPhysics</text>
+          <text class="seg-t" x="441" y="134" text-anchor="middle">EndPhysics</text>
+          <text class="seg-t" x="556" y="134" text-anchor="middle">PostPhysics</text>
+          <text class="seg-t" x="671" y="134" text-anchor="middle">Tickable objects</text>
+          <text class="seg-t" x="786" y="134" text-anchor="middle">PostUpdateWork</text>
+          <text class="seg-t" x="901" y="134" text-anchor="middle">LastDemotable</text>
+
+          <line class="tick" x1="326" y1="150" x2="326" y2="176"/>
+          <text class="lbl mut" x="326" y="192" text-anchor="middle">component default (not used)</text>
+          <line class="tick" x1="671" y1="150" x2="671" y2="176"/>
+          <text class="lbl mut" x="671" y="192" text-anchor="middle">UTickableWorldSubsystem (rejected)</text>
+
+          <path class="tick" d="M155,214 V222 H498 V214"/>
+          <text class="tick-t" x="326" y="240" text-anchor="middle">physics simulates between StartPhysics and EndPhysics</text>
+        </svg>
+      </div>
+      <figcaption>Components tick in <span class="mono">TG_DuringPhysics</span> by default (<span class="mono">ActorComponent.cpp:548</span>), and a tickable subsystem runs after <span class="mono">TG_PostPhysics</span> with no way to choose a group (<span class="mono">LevelTick.cpp:1821</span>). Pinning both the native component and the scheduler to <span class="mono">TG_PrePhysics</span> keeps every configuration at the same point in the frame, so the comparison is fair.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>One frame of the scheduler</h2>
+    <figure>
+      <div class="fig">
+        <svg viewBox="0 0 1000 300" role="img" aria-label="Illustrative frame: agents whose deadline falls before the next frame run first; the rest run in deadline order until the predicted cost of the next update would pass the 2 millisecond budget.">
+          <text class="lbl" x="80" y="30">Agent deadlines this frame (ms from now)</text>
+          <rect class="band" x="80" y="64" width="29" height="46"/>
+          <text class="amber-t" x="80" y="56">next frame · 16.7 ms</text>
+          <circle class="amber-fill" cx="88" cy="78" r="5"/>
+          <circle class="amber-fill" cx="101" cy="78" r="5"/>
+          <circle class="amber-fill" cx="88" cy="96" r="5"/>
+          <circle class="amber-fill" cx="101" cy="96" r="5"/>
+
+          <circle class="acc-fill" cx="149" cy="92" r="9"/><text class="num" x="149" y="96" text-anchor="middle">1</text>
+          <circle class="acc-fill" cx="209" cy="92" r="9"/><text class="num" x="209" y="96" text-anchor="middle">2</text>
+          <circle class="acc-fill" cx="286" cy="92" r="9"/><text class="num" x="286" y="96" text-anchor="middle">3</text>
+          <circle class="acc-fill" cx="355" cy="92" r="9"/><text class="num" x="355" y="96" text-anchor="middle">4</text>
+          <circle class="acc-fill" cx="441" cy="92" r="9"/><text class="num" x="441" y="96" text-anchor="middle">5</text>
+          <circle class="acc-fill" cx="527" cy="92" r="9"/><text class="num" x="527" y="96" text-anchor="middle">6</text>
+          <circle class="hollow" cx="596" cy="92" r="6"/>
+          <circle class="hollow" cx="648" cy="92" r="6"/>
+          <circle class="hollow" cx="734" cy="92" r="6"/>
+          <circle class="hollow" cx="802" cy="92" r="6"/>
+          <circle class="hollow" cx="863" cy="92" r="6"/>
+          <circle class="hollow" cx="923" cy="92" r="6"/>
+
+          <line class="axis" x1="80" y1="112" x2="940" y2="112"/>
+          <line class="tick" x1="80" y1="112" x2="80" y2="118"/><text class="tick-t" x="80" y="132" text-anchor="middle">0</text>
+          <line class="tick" x1="252" y1="112" x2="252" y2="118"/><text class="tick-t" x="252" y="132" text-anchor="middle">100</text>
+          <line class="tick" x1="424" y1="112" x2="424" y2="118"/><text class="tick-t" x="424" y="132" text-anchor="middle">200</text>
+          <line class="tick" x1="596" y1="112" x2="596" y2="118"/><text class="tick-t" x="596" y="132" text-anchor="middle">300</text>
+          <line class="tick" x1="768" y1="112" x2="768" y2="118"/><text class="tick-t" x="768" y="132" text-anchor="middle">400</text>
+          <line class="tick" x1="940" y1="112" x2="940" y2="118"/><text class="tick-t" x="940" y="132" text-anchor="middle">500</text>
+
+          <text class="lbl" x="80" y="172">Game-thread time spent this frame (ms)</text>
+          <rect class="amber-fill" x="80" y="186" width="50" height="22"/>
+          <rect class="amber-fill" x="132" y="186" width="50" height="22"/>
+          <rect class="amber-fill" x="184" y="186" width="50" height="22"/>
+          <rect class="amber-fill" x="236" y="186" width="50" height="22"/>
+          <rect class="acc-fill" x="288" y="186" width="67" height="22"/>
+          <rect class="acc-fill" x="357" y="186" width="67" height="22"/>
+          <rect class="acc-fill" x="426" y="186" width="67" height="22"/>
+          <rect class="acc-fill" x="495" y="186" width="67" height="22"/>
+          <rect class="acc-fill" x="564" y="186" width="67" height="22"/>
+          <rect class="acc-fill" x="633" y="186" width="66" height="22"/>
+          <rect class="over" x="701" y="186" width="85" height="22"/>
+          <line class="budget" x1="768" y1="178" x2="768" y2="216"/>
+          <text class="amber-t" x="776" y="182">budget 2.0</text>
+          <text class="lbl" x="183" y="230" text-anchor="middle">mandatory: 4 × 0.15</text>
+          <text class="lbl" x="493" y="230" text-anchor="middle">deadline order 1–6: 6 × 0.20</text>
+          <text class="lbl mut" x="800" y="230" text-anchor="middle">7th predicted 0.25: would end at 2.05 → waits</text>
+          <line class="axis" x1="80" y1="250" x2="940" y2="250"/>
+          <text class="tick-t" x="80" y="268" text-anchor="middle">0</text>
+          <text class="tick-t" x="252" y="268" text-anchor="middle">0.5</text>
+          <text class="tick-t" x="424" y="268" text-anchor="middle">1.0</text>
+          <text class="tick-t" x="596" y="268" text-anchor="middle">1.5</text>
+          <text class="tick-t" x="768" y="268" text-anchor="middle">2.0</text>
+          <text class="tick-t" x="940" y="268" text-anchor="middle">2.5</text>
+        </svg>
+      </div>
+      <figcaption><strong>Made-up example values, not measurements.</strong> The four amber agents are near the camera or would miss their deadline before the next frame, so they always run, even if that alone overran the budget; that is the no-starvation guarantee. The numbered agents then run in deadline order while the predicted cost still fits. The next one would end past 2.0 ms, so it waits for a later frame. The hollow agents still have time, and none can wait past its staleness limit (0 s near, 0.5 s far).</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Same workload, five callers</h2>
+    <p>Every configuration runs the same <span class="mono">OnBudgetedUpdate</span> on the same agents. Only the caller changes, which is what makes the before/after comparison controlled.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Config</th><th>Who calls the update</th><th>How it is selected</th></tr></thead>
+        <tbody>
+          <tr><td class="cfg">B0</td><td>The component's own tick, every frame, in <span class="mono">TG_PrePhysics</span></td><td><span class="mono">ub.Enabled 0</span></td></tr>
+          <tr><td class="cfg">B1</td><td>Same as B0, with engine tick batching on</td><td><span class="mono">tick.AllowBatchedTicks 1</span></td></tr>
+          <tr><td class="cfg">B2</td><td>Native tick with a distance-based <span class="mono">TickInterval</span></td><td>Baseline driver</td></tr>
+          <tr><td class="cfg">B3</td><td>Native tick with an interval from the Significance Manager</td><td>Baseline driver</td></tr>
+          <tr class="ours"><td class="cfg">UB</td><td>The scheduler, with native tick switched off</td><td><span class="mono">ub.Enabled 1</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Rules that keep it safe</h2>
+    <div class="rules">
+      <div class="rule"><b>Game and PIE worlds only, registered at begin-play</b><span>A custom tick starts the moment it is registered, and world subsystems also exist in editor worlds.</span></div>
+      <div class="rule"><b>Unregister in EndPlay, guard with IsValid</b><span>Garbage collection nulls a destroyed component only when it runs; until then the pointer is stale.</span></div>
+      <div class="rule"><b>Defer adds and removes during the loop</b><span>An update can destroy its own actor or spawn a new one synchronously.</span></div>
+      <div class="rule"><b>Staleness in seconds, not frames</b><span>A 10-frame cap is 333 ms at 30 fps and 69 ms at 144 fps; a gameplay guarantee must not depend on frame rate.</span></div>
+      <div class="rule"><b>Equal measurement cost in every mode</b><span>Every update records its gap the same way, so the baselines carry no extra instrumentation.</span></div>
+      <div class="rule"><b>Credit the prior art</b><span>Cost smoothing and accumulated delta come from Epic's Animation Budget Allocator, adapted here to general gameplay logic.</span></div>
+    </div>
+  </section>
+
+  <footer>Every engine behaviour on this page was checked in the UE 5.8.4 source (see <span class="mono">01b_Research_Findings.md</span>). Built so far: the UE project, the workload, the benchmark harness and the four baselines (B0–B3). The baselines are captured before any scheduler code exists. Next: the pure scheduling policy and its unit tests (step S4).</footer>
+</div>

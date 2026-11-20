@@ -1,0 +1,14 @@
+# Normalise text line endings in the repository; Windows batch files keep CRLF.
+* text=auto
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Unreal and media binaries are never diffed or merged as text.
+*.uasset binary
+*.umap binary
+*.png binary
+*.jpg binary
+*.gif binary
+*.mp4 binary
+*.zip binary
+*.utrace binary

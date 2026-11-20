@@ -1,0 +1,398 @@
+{
+  "environment": {
+    "date": "2026-11-21T00:01:38",
+    "engine": "5.8.4 (CL 58902052)",
+    "build_config": "Development (packaged)",
+    "compiler": "MSVC 14.44.35229, Windows SDK 10.0.22621.0",
+    "cpu": "Intel(R) Core(TM) i7-14650HX",
+    "gpus": "Intel(R) UHD Graphics (driver 32.0.101.7088); NVIDIA GeForce RTX 5070 Laptop GPU (driver 32.0.16.1047)",
+    "ram_gb": "31.6",
+    "os": "Microsoft Windows 11 Home Single Language build 26200",
+    "power_plan": "Power Scheme GUID: 6fecc5ae-f350-48a5-b669-b472cb895ccf  (Turbo)",
+    "on_ac_power": true,
+    "resolution": "1280x720 windowed, default scalability",
+    "common_args": "-windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd"
+  },
+  "runs": [
+    {
+      "name": "2026-11-21_000138_s3smoke_B0_N1000_r0_prime",
+      "config": "B0",
+      "agents": 1000,
+      "work": null,
+      "run": 0,
+      "priming": true,
+      "exit_code": 0,
+      "wall_seconds": 7.1,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=1000 -UBSeed=1 -UBWarmup=3.0 -UBCapture=8.0 -UBRunTag=2026-11-21_000138_s3smoke_B0_N1000_r0_prime",
+      "capture": "2026-11-21_000138_s3smoke_B0_N1000_r0_prime.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 480,
+          "mean": 5.087824791666667,
+          "min": 4.5229,
+          "median": 4.91395,
+          "p95": 6.763654999999999,
+          "p99": 7.354092999999995,
+          "max": 8.1299
+        },
+        "FrameTime": {
+          "n": 480,
+          "mean": 5.099902083333333,
+          "min": 4.4672,
+          "median": 4.9285,
+          "p95": 6.810305,
+          "p99": 7.405060999999999,
+          "max": 8.3062
+        },
+        "RenderThreadTime": {
+          "n": 480,
+          "mean": 3.3339825,
+          "min": 2.7139,
+          "median": 3.17645,
+          "p95": 4.988089999999999,
+          "p99": 5.484368999999997,
+          "max": 5.8479
+        },
+        "GPUTime": {
+          "n": 480,
+          "mean": 3.4147652083333333,
+          "min": 3.0769,
+          "median": 3.32395,
+          "p95": 4.037265,
+          "p99": 4.418238999999999,
+          "max": 4.6622
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 480,
+          "mean": 1000.0,
+          "min": 1000.0,
+          "median": 1000.0,
+          "p95": 1000.0,
+          "p99": 1000.0,
+          "max": 1000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 480,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_000138_s3smoke_B0_N1000_r0_prime_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_000138_s3smoke_B0_N1000_r1",
+      "config": "B0",
+      "agents": 1000,
+      "work": null,
+      "run": 1,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 6.1,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=1000 -UBSeed=1 -UBWarmup=3.0 -UBCapture=8.0 -UBRunTag=2026-11-21_000138_s3smoke_B0_N1000_r1",
+      "capture": "2026-11-21_000138_s3smoke_B0_N1000_r1.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 480,
+          "mean": 5.185161666666667,
+          "min": 4.5117,
+          "median": 4.94885,
+          "p95": 6.989889999999997,
+          "p99": 7.4392570000000005,
+          "max": 9.9569
+        },
+        "FrameTime": {
+          "n": 480,
+          "mean": 5.197905416666667,
+          "min": 4.487,
+          "median": 4.962,
+          "p95": 7.054125,
+          "p99": 7.4130929999999955,
+          "max": 10.5109
+        },
+        "RenderThreadTime": {
+          "n": 480,
+          "mean": 3.4146010416666663,
+          "min": 2.7358,
+          "median": 3.1901,
+          "p95": 5.165639999999999,
+          "p99": 5.4786579999999985,
+          "max": 7.6792
+        },
+        "GPUTime": {
+          "n": 480,
+          "mean": 3.47777875,
+          "min": 3.1126,
+          "median": 3.3913,
+          "p95": 4.20496,
+          "p99": 4.492368,
+          "max": 5.0721
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 480,
+          "mean": 1000.0,
+          "min": 1000.0,
+          "median": 1000.0,
+          "p95": 1000.0,
+          "p99": 1000.0,
+          "max": 1000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 480,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_000138_s3smoke_B0_N1000_r1_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_000138_s3smoke_B1_N1000_r1",
+      "config": "B1",
+      "agents": 1000,
+      "work": null,
+      "run": 1,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 6.2,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=1000 -UBSeed=1 -UBWarmup=3.0 -UBCapture=8.0 -UBRunTag=2026-11-21_000138_s3smoke_B1_N1000_r1 -ExecCmds=\"tick.AllowBatchedTicks 1\"",
+      "capture": "2026-11-21_000138_s3smoke_B1_N1000_r1.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 480,
+          "mean": 5.122734791666667,
+          "min": 4.23,
+          "median": 4.6891,
+          "p95": 6.973279999999998,
+          "p99": 8.519006,
+          "max": 9.9888
+        },
+        "FrameTime": {
+          "n": 480,
+          "mean": 5.138705625,
+          "min": 4.23,
+          "median": 4.7302,
+          "p95": 7.031664999999999,
+          "p99": 7.930851999999992,
+          "max": 11.3722
+        },
+        "RenderThreadTime": {
+          "n": 480,
+          "mean": 3.6142612499999998,
+          "min": 2.7873,
+          "median": 3.31305,
+          "p95": 5.470484999999999,
+          "p99": 7.158257999999999,
+          "max": 8.1691
+        },
+        "GPUTime": {
+          "n": 480,
+          "mean": 3.5707322916666664,
+          "min": 3.1323,
+          "median": 3.41805,
+          "p95": 4.416039999999999,
+          "p99": 5.393049999999999,
+          "max": 5.5501
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 480,
+          "mean": 1000.0,
+          "min": 1000.0,
+          "median": 1000.0,
+          "p95": 1000.0,
+          "p99": 1000.0,
+          "max": 1000.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 480,
+          "mean": 16.6667,
+          "min": 16.6667,
+          "median": 16.6667,
+          "p95": 16.6667,
+          "p99": 16.6667,
+          "max": 16.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_000138_s3smoke_B1_N1000_r1_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_000138_s3smoke_B2_N1000_r1",
+      "config": "B2",
+      "agents": 1000,
+      "work": null,
+      "run": 1,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 6.2,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=1000 -UBSeed=1 -UBWarmup=3.0 -UBCapture=8.0 -UBRunTag=2026-11-21_000138_s3smoke_B2_N1000_r1 -UBBaseline=B2",
+      "capture": "2026-11-21_000138_s3smoke_B2_N1000_r1.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 480,
+          "mean": 2.2643656250000004,
+          "min": 1.6213,
+          "median": 2.17445,
+          "p95": 2.887245,
+          "p99": 3.510519,
+          "max": 6.0754
+        },
+        "FrameTime": {
+          "n": 480,
+          "mean": 3.952576875,
+          "min": 2.3132,
+          "median": 3.91005,
+          "p95": 4.44364,
+          "p99": 4.809445999999996,
+          "max": 8.211
+        },
+        "RenderThreadTime": {
+          "n": 480,
+          "mean": 3.941505,
+          "min": 2.8141,
+          "median": 3.9062,
+          "p95": 4.417285000000001,
+          "p99": 4.6330019999999985,
+          "max": 6.228
+        },
+        "GPUTime": {
+          "n": 480,
+          "mean": 3.4092454166666664,
+          "min": 3.1024,
+          "median": 3.36335,
+          "p95": 3.87052,
+          "p99": 3.962026,
+          "max": 4.0536
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 480,
+          "mean": 141.71666666666667,
+          "min": 74.0,
+          "median": 136.0,
+          "p95": 197.14999999999986,
+          "p99": 223.41999999999996,
+          "max": 328.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 480,
+          "mean": 551.2153135416667,
+          "min": 500.0,
+          "median": 566.6667,
+          "p95": 583.3334,
+          "p99": 600.0001,
+          "max": 666.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_000138_s3smoke_B2_N1000_r1_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    },
+    {
+      "name": "2026-11-21_000138_s3smoke_B3_N1000_r1",
+      "config": "B3",
+      "agents": 1000,
+      "work": null,
+      "run": 1,
+      "priming": false,
+      "exit_code": 0,
+      "wall_seconds": 6.2,
+      "command": "\"D:\\UNREAL PORTFOLIO\\P01_UpdateBudget\\Build\\Windows\\UpdateBudget.exe\" -windowed -ResX=1280 -ResY=720 -nosound -unattended -traceautostart=0 -deterministic -FPS=60 -novsync -UBExit -csvStartOnEvent=BenchStart -csvStopOnEvent=BenchEnd -UBAgents=1000 -UBSeed=1 -UBWarmup=3.0 -UBCapture=8.0 -UBRunTag=2026-11-21_000138_s3smoke_B3_N1000_r1 -UBBaseline=B3",
+      "capture": "2026-11-21_000138_s3smoke_B3_N1000_r1.csv",
+      "stats": {
+        "GameThreadTime": {
+          "n": 480,
+          "mean": 2.789659583333333,
+          "min": 1.5752,
+          "median": 2.3669000000000002,
+          "p95": 4.524264999999999,
+          "p99": 4.804017,
+          "max": 7.1031
+        },
+        "FrameTime": {
+          "n": 480,
+          "mean": 4.391207708333334,
+          "min": 2.5089,
+          "median": 4.14055,
+          "p95": 5.504440000000001,
+          "p99": 6.079173999999981,
+          "max": 9.8181
+        },
+        "RenderThreadTime": {
+          "n": 480,
+          "mean": 4.3785018749999995,
+          "min": 2.7923,
+          "median": 4.1341,
+          "p95": 5.40935,
+          "p99": 5.830163,
+          "max": 9.7896
+        },
+        "GPUTime": {
+          "n": 480,
+          "mean": 3.6936135416666667,
+          "min": 3.1183,
+          "median": 3.5168,
+          "p95": 4.335005,
+          "p99": 4.704521,
+          "max": 5.6602
+        },
+        "UpdateBudget/UpdatesRun": {
+          "n": 480,
+          "mean": 141.71666666666667,
+          "min": 74.0,
+          "median": 136.0,
+          "p95": 197.14999999999986,
+          "p99": 223.41999999999996,
+          "max": 328.0
+        },
+        "UpdateBudget/MaxGapMs": {
+          "n": 480,
+          "mean": 551.2153135416667,
+          "min": 500.0,
+          "median": 566.6667,
+          "p95": 583.3334,
+          "p99": 600.0001,
+          "max": 666.6667
+        }
+      },
+      "finalised": true,
+      "events": {
+        "PSO": 5,
+        "UBBench/BenchEnd": 1
+      },
+      "agents_report": "2026-11-21_000138_s3smoke_B3_N1000_r1_agents.csv",
+      "log_errors": 0,
+      "log_warnings": 0
+    }
+  ]
+}

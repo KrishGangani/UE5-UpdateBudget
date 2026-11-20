@@ -1,0 +1,25 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Update Budget Core",
+	"Description": "Runs gameplay updates for many actors inside a measured game-thread millisecond budget, earliest deadline first, with a per-agent staleness bound in seconds.",
+	"Category": "Performance",
+	"CreatedBy": "",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "UpdateBudgetCore",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

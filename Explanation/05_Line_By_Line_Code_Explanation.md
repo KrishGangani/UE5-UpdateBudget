@@ -1,0 +1,373 @@
+# 05 · Line By Line Code Explanation: UpdateBudget
+
+**Rule:** every file that exists in `UpdateBudget\` is explained here, line by line, in the same step it is written (Hard rule 13). Sections follow the build order in [03_Implementation_Roadmap.md](03_Implementation_Roadmap.md).
+
+| Part | Step | Files |
+|---|---|---|
+| A | Phase 4, F1–F3 (foundation) | `.uproject`, two `Target.cs`, two `Build.cs`, two module `.cpp`, `.uplugin`, config `.ini`, `Tools\*.bat` |
+| B | S1 (workload, native path only; B6 updated in S2) | `BudgetedUpdateComponent`, `UpdateBudgetSubsystem`, `UBDemoBrainComponent`, `UBDemoAgent`, `UBBenchmarkSubsystem` |
+| C | S2 (measurement tools) | `Tools\csv_stats.py`, `Tools
+un_bench.py` |
+
+---
+
+## Part A · Foundation (Phase 4)
+
+### A1. `UpdateBudget.uproject`: the project descriptor
+
+```json
+{
+	"FileVersion": 3,
+	"EngineAssociation": "5.8",
+	"Category": "",
+	"Description": "P01 UpdateBudget: ...",
+	"Modules": [ { "Name": "UpdateBudget", "Type": "Runtime", "LoadingPhase": "Default" } ],
+	"Plugins": [ { "Name": "UpdateBudgetCore", "Enabled": true } ]
+}
+```
+
+| Line | What it does, and why |
+|---|---|
+| `"FileVersion": 3` | The descriptor schema version the engine expects. 3 is the current value in UE 5.8: Epic's own `TP_Blank` template uses it. A wrong value makes the editor refuse or upgrade the file |
+| `"EngineAssociation": "5.8"` | Tells the Epic launcher and the "Generate project files" shell action which installed engine opens this project. A launcher build is identified by its version string. If this were blank (as in the raw template), double-clicking the file would prompt for an engine |
+| `"Description"` | Shown in the project browser. Cosmetic |
+| `"Modules"` | Every C++ module the **project** owns. UnrealBuildTool compiles exactly these, plus plugin modules |
+| `"Name": "UpdateBudget"` | The module name. It must match the folder `Source\UpdateBudget\` and the class name in `UpdateBudget.Build.cs`. Module names are unique per project (UBT keys them in one dictionary, `RulesAssembly.cs:199–206`) |
+| `"Type": "Runtime"` | Built into game **and** editor targets. *Alternative:* `Editor` (editor-only), which would break packaged builds that need this code |
+| `"LoadingPhase": "Default"` | The module loads at the normal point, after engine startup and before the first world exists. That is early enough for its UClasses (including world subsystems) to be registered before the map loads |
+| `"Plugins"` / `"UpdateBudgetCore"` | Explicitly enables the project's own plugin. The plugin is `EnabledByDefault`, so it would load anyway, but stating it here makes the dependency visible in one place and keeps it enabled even if that default changes |
+
+### A2. `Source\UpdateBudget.Target.cs` and `UpdateBudgetEditor.Target.cs`: build targets
+
+```csharp
+using UnrealBuildTool;
+
+public class UpdateBudgetTarget : TargetRules
+{
+	public UpdateBudgetTarget(TargetInfo Target) : base(Target)
+	{
+		Type = TargetType.Game;
+		DefaultBuildSettings = BuildSettingsVersion.V7;
+		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_8;
+		ExtraModuleNames.Add("UpdateBudget");
+	}
+}
+```
+
+| Line | What it does, and why |
+|---|---|
+| `using UnrealBuildTool;` | Target files are **C#**, compiled by UBT itself, not C++. This brings `TargetRules`, `TargetType` and so on into scope |
+| `public class UpdateBudgetTarget : TargetRules` | UBT finds targets by class name: `<Name>Target`. `UpdateBudgetTarget` defines the target called `UpdateBudget`. That is why `build.bat UpdateBudget …` works |
+| `(TargetInfo Target) : base(Target)` | UBT passes in the platform, configuration and architecture being built. The base constructor stores them |
+| `Type = TargetType.Game` | A standalone game executable: no editor code, and the target that gets packaged. The editor file uses `TargetType.Editor`, which builds DLLs loaded by `UnrealEditor.exe` |
+| `DefaultBuildSettings = BuildSettingsVersion.V7` | Opts into the newest default compiler and build settings for this engine. **V7 is what Epic's 5.8 template uses.** Older values keep older defaults for backward compatibility |
+| `IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_8` | Uses 5.8's engine header include order (Epic trims transitive includes each version). Pinning it means a future engine upgrade doesn't silently change what our code includes |
+| `ExtraModuleNames.Add("UpdateBudget")` | Tells the target which of the project's modules to build. Plugin modules come in through the plugin system |
+
+**Why two target files?** The editor and a packaged game are different executables with different module sets. UBT needs one target rule per executable type.
+
+### A3. `Source\UpdateBudget\UpdateBudget.Build.cs`: the game module's build rules
+
+```csharp
+public class UpdateBudget : ModuleRules
+{
+	public UpdateBudget(ReadOnlyTargetRules Target) : base(Target)
+	{
+		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+		// UpdateBudgetCore is public: UBDemoBrainComponent.h (a public header) derives from its UBudgetedUpdateComponent.
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "UpdateBudgetCore" });
+	}
+}
+```
+
+| Line | What it does, and why |
+|---|---|
+| `class UpdateBudget : ModuleRules` | The class name **must equal the module name**. UBT maps each `*.Build.cs` filename to its module |
+| `ReadOnlyTargetRules Target` | A module can read target settings (platform, configuration) but not change them, which keeps module rules from fighting each other |
+| `PCHUsage = UseExplicitOrSharedPCHs` | Use a **shared precompiled header** provided by the engine (the build log shows `SharedPCH.UnrealEd.Project…`), unless the module names its own. Precompiled headers make each `.cpp` compile faster. *Rejected:* `NoPCHs` (slow), or a custom private PCH (unneeded for a small module) |
+| `PublicDependencyModuleNames …` | Modules whose **headers our public headers include**. Anything depending on *our* module then gets these include paths too. `Core` (containers, strings, logging), `CoreUObject` (UObject, reflection, GC), `Engine` (actors, components, worlds) |
+| `"UpdateBudgetCore"` (public) | **Rule of thumb: private unless a public header needs it.** In Phase 4 the plugin was a *private* dependency. In S1, `Public/UBDemoBrainComponent.h` derives from the plugin's `UBudgetedUpdateComponent`, so a public header now includes a plugin header, and the rule says **public**. Getting this wrong "works" today only because no other module includes our headers. It breaks the moment one does. Over-using public dependencies spreads include paths and slows builds, so the rule is applied header by header |
+| *Not included:* `InputCore`, `EnhancedInput` | The template adds them, but this project reads no player input in code. Keeping the dependency list honest is part of modular architecture |
+
+### A4. `Source\UpdateBudget\Private\UpdateBudgetModule.cpp`
+
+```cpp
+#include "Modules/ModuleManager.h"
+IMPLEMENT_PRIMARY_GAME_MODULE(FDefaultGameModuleImpl, UpdateBudget, "UpdateBudget");
+```
+
+| Line | What it does, and why |
+|---|---|
+| `#include "Modules/ModuleManager.h"` | Declares `IMPLEMENT_PRIMARY_GAME_MODULE` and `FDefaultGameModuleImpl`. Include the specific header, not a giant one (IWYU, "include what you use") |
+| `IMPLEMENT_PRIMARY_GAME_MODULE(…)` | Generates the module's entry point: `IMPLEMENT_GAME_MODULE` plus signing-key, encryption-key and target-name registration (`Core/Public/Modules/ModuleManager.h:1100–1136`, 5.8.4). **In monolithic (packaged) builds** it also defines the globals `GInternalProjectName` (from `UE_PROJECT_NAME`, which UBT passes in from the `.uproject`) and `GIsGameAgnosticExe = false`. In modular (editor) builds the name comes from the command line. **Primary** means "the project's main game module". A project needs at least one. *Without it:* the module never registers, and a packaged game has no project-name global to start from |
+| `FDefaultGameModuleImpl` | An engine-provided module class with empty `StartupModule`/`ShutdownModule`. We have no startup logic, so writing our own class would be an extra class with no reason |
+| `UpdateBudget` | The module name. It must match `.uproject` and `Build.cs` |
+| `"UpdateBudget"` | The old "game name" argument. **In 5.8 it is ignored:** the monolithic overloads name it `DEPRECATED_GameName`, and Epic's header comment says manually specifying a name "is no longer necessary". We pass the project name anyway, because the macro still takes three arguments, and it matches the template |
+
+**Why there is no `UpdateBudget.h`:** the template ships an empty module header that nothing includes. An empty header adds nothing, so we leave it out.
+
+### A5. `Plugins\UpdateBudgetCore\UpdateBudgetCore.uplugin`: the plugin descriptor
+
+| Field | Value | Why |
+|---|---|---|
+| `FileVersion`, `Version`, `VersionName` | 3, 1, "1.0" | Same schema as Epic's `SignificanceManager.uplugin` in 5.8 |
+| `FriendlyName`, `Description`, `Category` | "Update Budget Core", …, "Performance" | Shown in the editor's Plugins window. Same category as Epic's Significance Manager |
+| `EnabledByDefault` | `true` | Any project that copies the plugin gets it working without editing the `.uproject`. Later projects (P2, P7) reuse it this way |
+| `CanContainContent` | `false` | Code-only. Saying so avoids an empty content mount point |
+| `IsBetaVersion`, `IsExperimentalVersion` | `false`, `false` | No warning badge. Honest, because the plugin is stable code, though not "production-ready" (Hard rule 11) |
+| `Installed` | `false` | It is part of the project, not installed into the engine |
+| `Modules[0]` | `UpdateBudgetCore`, `Runtime`, `Default` | One runtime module, loaded at the default phase. Before the game module needs it, the dependency forces it to load anyway |
+
+### A6. `UpdateBudgetCore.Build.cs` and `Private\UpdateBudgetCoreModule.cpp`
+
+- **`Build.cs`:** the same pattern as A3, with `Core`, `CoreUObject` and `Engine` as **public** dependencies. The plugin's public headers will include engine types (`UActorComponent`, `UWorldSubsystem`), so any module that includes them needs those include paths. `DeveloperSettings` is added in S6, when the settings class exists, not before. (A log category `LogUpdateBudget` was added in S1 and **removed by the S1 simplify audit**: nothing logged to it yet. It returns when the scheduler first logs, in S5.)
+- **`IMPLEMENT_MODULE(FDefaultModuleImpl, UpdateBudgetCore);`** is the non-primary version of A4: an ordinary module entry point. `FDefaultModuleImpl` is the empty default implementation.
+
+The build log line `[Adaptive Build] Excluded from UpdateBudgetCore unity file: UpdateBudgetCoreModule.cpp` is normal. UBT compiles recently changed files on their own instead of inside the "unity" batch file, to speed up iteration.
+
+### A7. `Config\DefaultEngine.ini`
+
+| Section / key | Why |
+|---|---|
+| `GameMapsSettings: GameDefaultMap / EditorStartupMap = /Engine/Maps/Templates/Template_Default` | A shipped engine map with a floor and lights. No map has to be authored in the editor, so the project stays fully buildable from text files. The template's `OpenWorld` map was rejected: it is World Partition, and streaming would add measurement noise |
+| `[/Script/Engine.Engine] bSmoothFrameRate=False, bUseFixedFrameRate=False` | Both are already the engine defaults (`BaseEngine.ini`). They are **restated** so nobody can turn on smoothing or a frame cap later without it showing in a diff. Either one would make frame time stop reflecting real work |
+| `[SystemSettings] r.VSync=0` | Already the engine default. Restated for the same reason: VSync makes Present wait for the monitor |
+| `RendererSettings`, `WindowsTargetSettings` | Copied from Epic's 5.8 template: DX12 with Shader Model 6, virtual shadow maps, no static lighting. These are standard modern defaults, not benchmark choices |
+
+`DefaultGame.ini` sets the project name and description, plus (since S1) `+DirectoriesToAlwaysCook=(Path="/Engine/BasicShapes")`. The agent's cube mesh is referenced **only from C++** (`ConstructorHelpers`). No map references it, so without this line the cooker would leave it out and packaged agents would be invisible. `DefaultInput.ini` is Epic's template file, unchanged.
+
+**Engine-written block:** on the first editor run, the engine's `AndroidFileServerEditor` plugin appended an `[/Script/AndroidFileServerEditor.AndroidFileServerRuntimeSettings]` section, with a random `SecurityToken`, to `DefaultEngine.ini`. It configures Epic's Android device file server, does nothing on Windows, and was left as the engine wrote it.
+
+### A8. `Tools\build.bat`, `smoke_game.bat`, `package.bat`
+
+| Script | Key lines | Why |
+|---|---|---|
+| `build.bat [Target] [Config]` | `call "%UE_ROOT%\Engine\Build\BatchFiles\Build.bat" %TARGET% Win64 %CONFIG% -Project=… -WaitMutex -NoHotReloadFromIDE` | A reproducible command-line build. `-WaitMutex` waits if another build is already running instead of failing. `%~dp0` is the script's own folder, so the script works from any working directory |
+| `smoke_game.bat` | `UnrealEditor-Cmd.exe <uproject> -game -nullrhi -nosound -unattended -traceautostart=0 -ExecCmds="quit" -abslog=…` | Runs the uncooked game with no window and no GPU, loads the default map, then quits. `-traceautostart=0` stops an open Insights from tracing it (`01b` §4) |
+| `package.bat [Config]` | `RunUAT.bat BuildCookRun … -clientconfig=%CONFIG% -build -cook -stage -pak -archive -archivedirectory=…` | Builds, cooks, stages, paks and archives a standalone game. **The default is Development**, because the launcher engine can't build Test (Phase 4 finding) |
+
+**Phase 4 results (2026-11-20):**
+- The editor target builds with **0 errors and 0 warnings** (MSVC 14.44.35229).
+- The smoke test loads `Template_Default` in 0.15 s, mounts and loads both modules, and exits with code 0. The log has 0 errors; its warnings are all engine-side `LogEditorDataStorageUI`, from running the editor binary in `-game`.
+- The packaged build result is recorded in `09_Testing_And_Benchmarks.md`.
+
+---
+
+## Part B · Step S1: the workload, native path only
+
+**State after S1 (2026-11-20):**
+- The workload runs on **native component ticks**; there is no scheduler yet, on purpose, because the baselines must be captured first.
+- The code passed a `code-review` pass (9 findings, all fixed or documented) and a 4-angle `simplify` audit (13 changes).
+- It builds with 0 errors and 0 warnings.
+
+### B1. `BudgetedUpdateComponent.h` (plugin, public)
+
+| Line(s) | What, why, and what breaks if it changes |
+|---|---|
+| `#pragma once` | Include the header once per translation unit. *Alternative:* `#ifndef` guards, which do the same thing more verbosely. Unreal uses `#pragma once` everywhere |
+| `#include "Components/ActorComponent.h"` | The base class must be complete to derive from it, so a forward declaration is not enough here |
+| `#include "BudgetedUpdateComponent.generated.h"` | Code generated by UHT, the Unreal Header Tool, for this file's reflection. **Must be the last include.** UHT checks this and fails the build otherwise |
+| `#define UE_API UPDATEBUDGETCORE_API` … `#undef UE_API` | The 5.8 export pattern (`01b` §3). `UPDATEBUDGETCORE_API` becomes `__declspec(dllexport)` while building the plugin DLL and `dllimport` for modules using it. `UE_API` is a short local alias, undefined at the end so it can't leak into other headers. **Without it** the game module gets "unresolved external symbol" link errors for the constructor, `RunUpdate`, `BeginPlay` and so on |
+| `class UUpdateBudgetSubsystem;` | A forward declaration. The header only needs the *name* (for a pointer and a `friend`), not the full class, so it avoids an include cycle and keeps rebuilds small |
+| `UCLASS(MinimalAPI, Abstract, ClassGroup = (UpdateBudget))` | `UCLASS` registers the class with the reflection system, so it can be a UPROPERTY target, garbage-collected and spawned. `MinimalAPI` exports only the class's type information (`StaticClass`, casts), not every function; the members we need are exported one by one with `UE_API`, which keeps the DLL's export table small. `Abstract` means it can't be added to an actor directly: you must subclass it, because the base has no gameplay. `ClassGroup` is the editor's "Add Component" category |
+| `class UBudgetedUpdateComponent : public UActorComponent` | A **component** rather than an interface: it must hold data (`LastUpdateTime`, registry link), and it attaches to any actor (02 §4). `U` prefix: UObject-derived |
+| `GENERATED_BODY()` | Expands to the code UHT generated: constructors used by reflection, `StaticClass()`, the `Super` typedef and more. Every `UCLASS` needs it |
+| `UE_API UBudgetedUpdateComponent();` | The constructor. It sets the tick defaults (B2). It runs for the class default object (CDO) and for every instance |
+| `UE_API void RunUpdate();` | **The one entry point for an update, used by every caller**: native tick now, the scheduler in S5. Callers never call `OnBudgetedUpdate` directly, so time accounting can't be skipped |
+| `double GetLastUpdateTime() const` | `const`: reading it cannot change the object. `double`, because `UWorld::GetTimeSeconds()` returns double in UE5; float would lose milliseconds after a few hours of uptime |
+| `BeginPlay` / `EndPlay` / `TickComponent` `override` | Engine lifecycle hooks (06 #5). `override` makes the compiler check that the signature really matches a base virtual. A typo would otherwise silently add a new function that is never called |
+| `virtual void OnBudgetedUpdate(float DeltaSeconds) {}` | The customisation point. `protected`, because only the class itself and subclasses call it. An empty default instead of pure virtual, because UObjects need a constructible CDO. `float`, because gameplay math is float; the time *bookkeeping* stays double |
+| `friend class UUpdateBudgetSubsystem;` | Only the subsystem may write the link fields. A friend keeps them private to everyone else. *Rejected:* public setters, which would let any code corrupt the registry |
+| `UPROPERTY(Transient) TObjectPtr<UUpdateBudgetSubsystem> Subsystem;` | `UPROPERTY` makes the reference visible to GC. `Transient` means never saved to disk, since it is a runtime-only link. `TObjectPtr` is UE5's UObject pointer wrapper (06 #8) |
+| `int32 RegistryIndex = INDEX_NONE;` | The slot in the subsystem's array, enabling O(1) removal. `INDEX_NONE` (−1) means "not registered". Not a UPROPERTY: it is plain bookkeeping and nothing reflects it |
+| `double LastUpdateTime = -1.0;` | Negative means "never updated". That one state also defines "first update" for the time contract |
+
+### B2. `BudgetedUpdateComponent.cpp`
+
+| Line(s) | What, why, and what breaks if it changes |
+|---|---|
+| `#include UE_INLINE_GENERATED_CPP_BY_NAME(BudgetedUpdateComponent)` | Pulls the UHT-generated `.gen.cpp` into this file instead of compiling it separately: fewer translation units, faster builds. 5.x convention |
+| Constructor: `PrimaryComponentTick.bCanEverTick = true;` | Components default to **not** ticking (`ActorComponent.cpp:550`). Without this line the native baselines would never run. `bStartWithTickEnabled` is already `true` by default, so it isn't repeated (simplify audit) |
+| `PrimaryComponentTick.TickGroup = TG_PrePhysics;` | Components default to `TG_DuringPhysics` (`ActorComponent.cpp:548`). The scheduler runs in `TG_PrePhysics`, so pinning both there keeps B0–B3 and UB at the same point in the frame. **If removed:** the native baselines would run during physics, a different frame position, and the comparison would be unfair |
+| `BeginPlay`: `Super::BeginPlay();` first | The engine's own begin-play work (it sets `bHasBegunPlay` and fires the Blueprint event) must happen before ours |
+| `UWorld::GetSubsystem<UUpdateBudgetSubsystem>(GetWorld())` | The static, null-safe overload (`World.h:4331`). It returns null in editor or preview worlds, where our subsystem doesn't exist (`DoesSupportWorldType`). There the component just ticks natively with no registry. *Rejected:* a nested `if (UWorld*)`, which said the same thing in more code (simplify audit) |
+| `Found->Register(this);` | The subsystem sets **both** link fields (altitude audit): one owner for the invariant "registered ⇔ `Subsystem` and `RegistryIndex` are set" |
+| `EndPlay`: `if (UUpdateBudgetSubsystem* Current = Subsystem)` | Copies the `TObjectPtr` into a raw local once. In editor builds a `TObjectPtr` dereference adds handle tracking, so doing it once is cheaper (efficiency audit) |
+| `Current->Unregister(this);` **before** `Super::EndPlay` | Leave the registry while still fully valid. **If not called:** the registry keeps a pointer to a dying component until GC nulls it, and with a scheduler (S5) that is a use-after-end-play hazard. GC nulling is not timely (`01b #8`) |
+| `TickComponent`: `Super::TickComponent(...)` | Keeps engine behaviour (`check(bRegistered)`; fires the Blueprint Tick event for Blueprint subclasses, `ActorComponent.cpp:1882–1888`). It costs about 1–2 ns and **only exists on the native path**: the one per-update infrastructure difference between modes, documented for honesty |
+| `RunUpdate();` *(DeltaTime not forwarded)* | **The time contract** (B3). The engine's `DeltaTime` would differ by mode (a frame delta, or time since an interval tick) and includes per-actor time dilation. Using it would give two clocks. The S1 code review found exactly that bug |
+| `RunUpdate`: `if (!ensure(World)) return;` | `ensure` logs a callstack once and continues, whereas `check` would crash. A missing world is a caller bug worth reporting, not a reason to crash a benchmark |
+| `const double PreviousUpdateTime = LastUpdateTime; LastUpdateTime = World->GetTimeSeconds();` | Stamp first, so the subsystem sees the new time through `GetLastUpdateTime()`. `GetTimeSeconds()` is world time: paused time excluded, global time dilation included |
+| `Current->RecordUpdate(*this, PreviousUpdateTime);` | **The single per-update sync point** (altitude audit). It counts every update, including the first; the S1 review found the first update wasn't counted. It is passed facts (the client and its previous time), not an encoded value, so S5 can also refresh the scheduler's hot copy of this client's time here, in every mode |
+| `DeltaSeconds = (PreviousUpdateTime < 0.0) ? 0.0 : LastUpdateTime - PreviousUpdateTime;` | 0 on the first update, then the exact time since the previous one, from one clock |
+| `OnBudgetedUpdate(static_cast<float>(DeltaSeconds));` | An explicit narrowing cast, so the double → float conversion is visible in the code |
+
+### B3. `UpdateBudgetSubsystem.h` / `.cpp` (plugin)
+
+| Line(s) | What, why, and what breaks if it changes |
+|---|---|
+| `#include "BudgetedUpdateComponent.h"` | Needed because `RecordUpdate` is defined **inline in this header** and calls `Client.GetLastUpdateTime()`. No cycle: the component header only forward-declares the subsystem |
+| `class UUpdateBudgetSubsystem : public UTickableWorldSubsystem` | A world subsystem has the world's lifetime (`01b` §3). The *tickable* variant gives a `Tick` after `TG_PostPhysics` (`LevelTick.cpp:1821`), when every PrePhysics update of the frame is finished, so the per-frame totals are complete (02 §13) |
+| `Register(Client)`: `check(Client)` | Passing null is a programming error. `check` stops in Development builds and compiles out in Shipping |
+| `if (Client->RegistryIndex != INDEX_NONE) return;` | Idempotent: registering twice is harmless |
+| `Client->Subsystem = this; Client->RegistryIndex = Clients.Add(Client);` | `TArray::Add` returns the new element's index, which is stored for O(1) removal |
+| `Unregister`: `if (Clients.IsValidIndex(Index) && Clients[Index] == Client) RemoveClientAt(Index);` | Only remove if the slot really holds this client, which protects against stale indices. The link fields are cleared either way |
+| `RemoveClientAt`: `Clients.RemoveAtSwap(Index, EAllowShrinking::No);` | **Swap-remove:** the last element moves into the hole, O(1). *Rejected:* `RemoveAt`, which shifts everything down, O(N), and would make every despawn cost proportional to the agent count. The trade-off is that order isn't preserved, which is fine because nothing depends on registry order. `EAllowShrinking::No` avoids reallocating the array while agents come and go |
+| `if (Clients.IsValidIndex(Index) && Clients[Index]) Clients[Index]->RegistryIndex = Index;` | The moved element's stored index must be updated, or its next removal would hit the wrong slot. **The null check:** GC can null an entry whose component was collected without `EndPlay` (`01b #8`). The S1 review found the crash path. One helper now serves every removal path, including those S5 adds (altitude audit) |
+| `RecordUpdate(...)` (inline) | `++FrameUpdates` counts every update. The gap is recorded only when there was a previous update. **Inline** because it runs thousands of times per frame and is only a few instructions; an out-of-line cross-DLL call would add call overhead to every update (efficiency audit) |
+| `Deinitialize`: detach any remaining client, `Clients.Empty()`, then `Super::Deinitialize()` | Normally every client has already unregistered (`EndPlay` runs before `Deinitialize`, `01b #7`). This is the safety net, so no component keeps a strong reference to a dead subsystem. `Super` must be called **last**, because the tickable base clears its "initialised" flag there |
+| `Tick`: three `CSV_CUSTOM_STAT(UpdateBudget, …, ECsvCustomStatOp::Set)` | One value per frame per column: `UpdateBudget/Clients`, `UpdateBudget/UpdatesRun`, `UpdateBudget/MaxGapMs`. **Why not one CSV call per update?** The CSV profiler's own startup benchmark measured about 50 ns per custom stat on this machine. 4,000 calls per frame would add about 0.2 ms of pure instrumentation |
+| `GetStatId`: `RETURN_QUICK_DECLARE_CYCLE_STAT(UUpdateBudgetSubsystem, STATGROUP_Tickables)` | Required by `FTickableGameObject` (pure virtual). It gives this tick a named entry in `stat` and Insights |
+| `DoesSupportWorldType` → `Game || PIE` (`protected`) | The engine default also includes `Editor` worlds (`WorldSubsystem.cpp:31`). The override keeps the subsystem, and in S5 its tick function, out of the editor |
+
+### B4. `UBDemoBrainComponent.h` / `.cpp` (game module): the workload
+
+| Line(s) | What, why, and what breaks if it changes |
+|---|---|
+| `UENUM() enum class EUBBrainState : uint8` | `enum class`: scoped and strongly typed, no implicit int conversion. `uint8` keeps it 1 byte. `UENUM` makes it reflectable for debugging and future UPROPERTYs |
+| `UCLASS(ClassGroup = (UpdateBudget))` without `Abstract` | This is the concrete subclass agents use |
+| `InitPatrol(Center, Phase)` | Called **between** `SpawnActorDeferred` and `FinishSpawning`, so the patrol exists before `BeginPlay` and before the first tick |
+| `UPROPERTY(EditAnywhere, Category = "Workload", meta = (ClampMin = "0")) float PatrolRadius = 300.f;` | `EditAnywhere`: tunable per instance and on the class default in the editor. `Category`: grouping in the Details panel. `ClampMin`: the editor refuses negative values. `float`, because centimetre-scale gameplay math is float. **300 cm** gives a 6 m wide circle: big enough to see motion from the camera, small enough for dense grids. **Not `BlueprintReadWrite`:** nothing in Blueprint needs it, and exposing it would invite changes mid-benchmark |
+| `PatrolAngularSpeed = 0.5f` (rad/s) | 0.5 rad/s × 3 m = 1.5 m/s, a walking pace. One lap takes about 12.6 s, so a 60 s capture covers about 5 laps |
+| `AlertRadius = 1500.f`, `AlertConeCos = 0.5f` | 15 m awareness and a 60° half-angle cone. This gives a realistic mix of Patrol and Alert as the camera passes. The cone is stored as a **cosine** so the per-update test needs no `acos` |
+| `ComputeIterations = 128` | A stand-in for heavier logic, **calibrated in S2** (09, S2-f): at N = 1,000 it makes B0 game-thread bound (median 5.21 ms, against 2.46 ms with no compute, where the frame was render-bound), so a game-thread improvement shows up in frame time. About 20 ns per iteration per agent on this machine |
+| `GetPatrolAngle(double)` (private, inline) | One formula, used by `GetPatrolPosition` and `OnBudgetedUpdate`. Previously it was copied into two functions (simplify audit) |
+| `OnBudgetedUpdate`: `PatrolTime += DeltaSeconds;` | Gameplay that integrates time, the kind of code that needs the accumulated-delta contract. An agent updated after 0.3 s walks 0.3 s worth |
+| `Cos`/`Sin` once → `Position` and `Forward(-Sin, Cos, 0)` | Two trig calls per update instead of four. `Forward` is the derivative of the circle (the counter-clockwise tangent). Done before S2 calibration, so the calibrated cost measures the final code |
+| `GetWorld()->GetFirstPlayerController()` … `PlayerCameraManager.Get()` | "Where is the player?" is asked **per agent, as real perception code would**. The efficiency audit priced it at about 10–20 ns per update, the same in every mode. It is kept on purpose: caching it once per frame would make the workload unrealistically cheap. `.Get()` turns the `TObjectPtr` into a raw pointer once |
+| `DistanceSquared < Square(AlertRadius)` | Squared distances avoid a square root in the common "far away" case |
+| `Dot(Forward, ToPlayer) > AlertConeCos * Sqrt(DistanceSquared)` | The same test as `Dot(Forward, Normalized(ToPlayer)) > cos`, without a division (efficiency audit). The square root is only computed when the agent is near enough to matter (`&&` short-circuits) |
+| `if (NewState != State) { State = NewState; ++StateChanges; }` | Counts transitions, used later to report decision churn |
+| `GetOwner()->SetActorLocationAndRotation(Position, FacingDirection.Rotation())` | **One** transform update per call, not separate location and rotation calls that would each update the component and its render state |
+| Compute loop with `Sink` → `ComputeSink` | A fixed amount of floating-point work. It writes to a member, so the compiler cannot prove the result unused and delete the loop. Without the store, an optimising build could remove the "work" entirely and the benchmark would measure nothing |
+
+### B5. `UBDemoAgent.h` / `.cpp` (game module)
+
+| Line(s) | What, why, and what breaks if it changes |
+|---|---|
+| `PrimaryActorTick.bCanEverTick = false;` | The actor itself does nothing per frame; all gameplay is in the brain. Its tick function is **never registered** (`Actor.cpp:1690`), so it adds no tick-manager cost |
+| `CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"))` | Creates a default subobject: a component every instance gets, created in the constructor. The name must be unique within the class |
+| `RootComponent = Mesh;` | The mesh defines the actor's transform. `SetActorLocationAndRotation` moves it |
+| *(no `SetMobility`)* | Scene components default to `Movable` (`SceneComponent.cpp:124`), which a moving agent needs. The explicit call was redundant (simplify audit) |
+| `SetCollisionEnabled(NoCollision)`, `SetGenerateOverlapEvents(false)` | The workload measures **gameplay logic**, not physics. No collision means no physics bodies are created and moving costs no physics updates |
+| `SetCastShadow(false)` | Cuts GPU shadow cost for thousands of moving cubes. The benchmark targets the game thread |
+| `static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeMesh(TEXT("/Engine/BasicShapes/Cube.Cube"));` | Loads the engine cube once. `static` means the lookup runs once for the class, not per instance. **Only valid inside a constructor.** The asset is cooked through `DirectoriesToAlwaysCook` (A7) |
+| `CreateDefaultSubobject<UUBDemoBrainComponent>(TEXT("Brain"))` | The workload component. It registers with the subsystem in its own `BeginPlay` |
+
+### B6. `UBBenchmarkSubsystem.h` / `.cpp` (game module): the director *(as of S2)*
+
+| Line(s) | What, why, and what breaks if it changes |
+|---|---|
+| `class UUBBenchmarkSubsystem : public UTickableWorldSubsystem` | **Changed from the plan** (02 §13): the project has no hand-authored map, so nothing would place a director or spawner actor. A world subsystem has exactly the world's lifetime and replaces both. *Tickable* since S2, because it drives the camera and the run timeline every frame. That work is benchmark control, not measured gameplay, and it is identical in every configuration |
+| `struct FRunSettings { … }` (private, plain struct) | The `-UB…=` values, read **once** into one place, with their defaults beside them. A plain struct, not a USTRUCT: nothing reflects it |
+| `enum class ERunPhase : uint8 { Idle, WarmUp, Capture, Done }` | The run timeline as a small state machine. `Idle` means no workload was requested, so the subsystem does nothing (safe in normal play) |
+| `static FRunSettings ReadRunSettings()` | Reads the command line once (simplify audit). `FParse::Param(…, TEXT("UBExit"))` is a flag with no value. `FParse::Value` leaves a field untouched when the key is absent, so the defaults stand |
+| `ValidateRunSettings()` | Logs an **Error** when the capture is ≤ 0 s, the warm-up is < 0 s, or `-UBWaveAt` falls outside the capture. A misconfigured run then fails the batch (`run_bench.py` counts log errors) instead of silently measuring the wrong thing (S2 review) |
+| `EffectiveComputeIterations` | Read back from the first agent's brain and written to the CSV metadata and report. "−1 = default" would hide a recalibration of the default (S2 review) |
+| `OnWorldBeginPlay`: spawn, `SpawnActor<ACameraActor>()`, `Phase = WarmUp` | Runs before any actor's `BeginPlay` (`World.cpp:6167` vs `6174`). The camera is a plain engine `ACameraActor`, so no new class is needed |
+| `CSV_METADATA(TEXT("UBRunTag"), …)` and the rest | Writes the run description **into the CSV file itself** (keys arrive lower-case, e.g. `ubruntag`). A capture can never be separated from what produced it |
+| `SpawnAgents(World, Count, Seed)` | The S1 spawner, now able to append, which the wave needs. `ArenaHalfExtent` keeps the largest grid so the camera path covers it. `Phase0` is renamed from `Phase` to avoid shadowing the run phase |
+| `UpdateCamera(Elapsed - WarmupSeconds)` | A circle at half the arena's half-width (at least 15 m), 4 m up, pitched down 15°, **one lap per capture window**. The angle is **0 at the planned BenchStart** (negative during warm-up), so the captured path never depends on the warm-up length; the S2 review found the earlier begin-play timing did. It is analytic, so every run sees exactly the same path. Agents near the camera change continuously, which is what gives the scheduler's significance something real to react to |
+| `if (PC && PC->GetViewTarget() != Camera) PC->SetViewTarget(Camera);` every frame | The player controller may possess its default pawn after begin play, which resets the view target. Re-applying it every frame is robust and costs one pointer compare |
+| `Tick` → `WarmUp`: at `Elapsed >= WarmupSeconds` → `CSV_EVENT(UBBench, TEXT("BenchStart"))` | The CSV profiler compares event **text** (without category) case-insensitively with `-csvStartOnEvent=` (`CsvProfiler.cpp:4769`). So this event **starts the capture**: warm-up frames are never in the file |
+| `Capture`: the optional wave | At `WaveAt` seconds into the capture, `N` more agents spawn with seed + 1, doubling the load, and a `Wave` event marks the frame. Used for the "load doubles" stress test (01 §6.1) |
+| `Capture`: at `CaptureSeconds` → `CSV_EVENT(BenchEnd)`, `Phase = Done` | `-csvStopOnEvent=BenchEnd` stops the capture **at the end of this frame** (the stop is queued and handled in `EndFrame`). The game owns the whole window, so the run script needs no frame count |
+| `Done`: `WriteRunReport()` on the **first** Done frame | Written *after* the capture has stopped. The S2 review found that writing it on the BenchEnd frame put an N-dependent string build and disk write inside the last measured frame |
+| `Done`: `RequestExit(false, …)` after `ExitDelayFrames = 3` | The CSV profiler writes its file the frame after capture ends (log: "Capture Ended. Writing CSV"). Waiting three frames lets it finish before shutdown. `false` means a normal, non-forced exit |
+| `WriteRunReport()` | One CSV line per agent: final position, patrol time, last update time, **age at report** (−1 if never updated), state changes. A `#` header line records the run settings, the BenchStart time, the report time and the **effective** compute iterations. It feeds SC6 (positions vs the reference) and the end-of-run staleness check that catches agents that were *never* updated. `Report.Reserve(...)` avoids repeated string growth for thousands of lines |
+| `IsValid(Agent)` before use | Agents can be destroyed during a run. The S1 review nit is now enforced where the list is used |
+| `FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("UBRuns"), Tag + ".csv")` | In the packaged build this resolves to `Build\Windows\UpdateBudget\Saved\UBRuns\`, where `run_bench.py` collects it |
+
+---
+
+## Part C · Step S2: the measurement tools (`Tools\`)
+
+### C1. `csv_stats.py`
+
+| Part | What, why |
+|---|---|
+| `csv.field_size_limit(1 << 30)` | Unreal's metadata row has one very long field (the command line and every metadata pair). Python's default 128 KB limit raised an error on the first real capture |
+| `load_capture` | A finalised capture ends with the **full header** and a `[key],value,…` metadata row. Both are dropped, and **the end header is used for column lookup**: with `HasHeaderRowAtEnd`, columns can appear mid-capture, so the first header is only a *prefix* (seen on a real capture: 282 vs 286 columns). Finalised means the last row starts with `[` and the first header is a prefix of the end header; otherwise every row is data and the result is flagged `finalised: False`. **Two bugs found and fixed in S2:** (1) metadata keys were emptied (stripping up to `]`), caught by `tag=?`; (2) the first finalised check compared the two headers for equality, which rejected valid captures |
+| `frame_events` / `--split-event` | The `EVENTS` column holds `Category/Name##timestamp;…`. A wave run is split at the `Wave` frame into **pre**, **event frame** and **post** statistics, so steady state at the new load isn't mixed with the spawn hitch (S2 review) |
+| `percentile` | Linear interpolation between closest ranks: position = p/100 × (n−1), the same as numpy's default. Documented in the file so any reader can reproduce a number |
+| `summarize` | n, mean, min, median, p95, p99, max |
+| `--selftest` | Checks the maths against hand-calculated values (1…10: median 5.5, p95 9.55, p99 9.91) before any benchmark trusts it |
+| `--skip N` | Drops the first N frames. Only needed for captures that start at boot. Event-started captures use 0 |
+
+### C2. `run_bench.py`
+
+| Part | What, why |
+|---|---|
+| `COMMON_ARGS` | The same flags for every run: 1280×720 windowed on the **real GPU** (`GameThreadTime` is 0 under `-nullrhi`, S1 finding), fixed step `-deterministic -FPS=60` (identical simulated frames in every configuration, `01b` B-1), `-novsync`, `-traceautostart=0`, `-UBExit`, and the event-driven capture window |
+| `CONFIGS` | Config name → extra arguments. B0 = nothing; B1 = `-ExecCmds="tick.AllowBatchedTicks 1"`; B2 = `-UBBaseline=B2`; B3 = `-UBBaseline=B3` (added in S3, Part D). **UB is added only when the code implementing it exists** (S6). A config is never listed before its code exists, so a batch can't silently measure B0 under another name |
+| `environment_record()` | CPU, GPUs and drivers, RAM, OS build, **power plan and AC power** (thermal noise control on a laptop), engine version and changelist, build configuration, compiler, resolution, flags. Stored with every batch ([Benchmarks/README.md](../Benchmarks/README.md)) |
+| Command built as **one string** | So `-ExecCmds="…"` reaches Unreal exactly as written. Python's list quoting would have wrapped the whole argument in quotes, which Unreal's parser doesn't expect |
+| `GameUserSettings.ini` deleted before each run | It can override VSync and frame caps at startup (`01b` §4) |
+| Interleaving | The config order **rotates each round** (B0,B1 / B1,B0 / …), so laptop thermal drift doesn't systematically favour one configuration |
+| Names | `<batch>_<Config>[_W<work>]_N<agents>_r<run>`, with `<batch>` = `YYYY-MM-DD_HHMMSS[_label]`. **Raw files are never overwritten** (`unique_path` raises). The S2 review found that date-only names let a second batch on the same day silently replace the first |
+| Priming run | One discarded run before the batch warms file, driver and PSO caches, so the first measured run isn't the only cold one (S2 review). Use an **even** `--runs` with two configs so each leads equally often |
+| Artefact collection | Only files written **after this run started** are taken: the CSV, the per-agent report, and the log, whose modification time is checked so a run that never started can't inherit the previous log (S2 review). Analysis errors are caught per run. **The manifest is rewritten after every run**, so a crash loses nothing |
+| Timeout | `warmup + capture + 180 s`; a hung run is recorded (`exit_code: null`) instead of hanging the batch |
+| Failure rule | A run fails if it has a non-zero exit, a timeout, no or partial capture, a missing log, log errors, or an analysis error. Failed runs are listed as **ATTENTION** and the script exits non-zero. Each run's **PSO events** are counted, so shader-compile noise is visible |
+| `write_summary` | For each (config, work, N): the **median across runs** of each run's median, p95 and p99, with the **[min–max] across runs**, as `Benchmarks\README.md` defines |
+
+---
+
+## Part D · Step S3: the native baselines B2 and B3
+
+Two baselines that a competent team would write without UpdateBudget. They exist so the scheduler is compared with good native practice, not only with "every agent ticks every frame" (01 §5, success criterion SC4). Both use the same bands, the same view and the same setter, and both are timed.
+
+### D1. `UBBaselineDriverSubsystem.h` / `.cpp` (game module)
+
+| Line(s) | What, why, and what breaks if it changes |
+|---|---|
+| `class UUBBaselineDriverSubsystem : public UTickableWorldSubsystem` (`UCLASS()`, no `_API`) | The world's lifetime, and a `Tick` after `TG_PostPhysics`. Not exported: only this module uses it. **Why a subsystem and not an actor:** the project has no hand-authored map (02 §13), and a subsystem exists in every game world automatically |
+| `DoesSupportWorldType` → `Game \|\| PIE` | The same rule as the other subsystems: never in editor worlds |
+| `Initialize`: `Benchmark = Collection.InitializeDependency<UUBBenchmarkSubsystem>();` **before** `Super::Initialize` | Tickable world subsystems join the tick list inside `Initialize` (`WorldSubsystem.cpp:94–101`), so initialisation order is tick order (06 §19). The benchmark subsystem therefore ticks first: it spawns the wave, and this driver adopts the new agents **in the same frame**, identically in every build. The returned pointer is kept (efficiency audit), so there is no subsystem lookup per frame |
+| `UPROPERTY(Transient) TObjectPtr<UUBBenchmarkSubsystem> Benchmark;` | `UPROPERTY` so the garbage collector sees the reference. `Transient`: runtime state, never saved |
+| `namespace UBBaseline { constexpr double NearDistance = 1500.0; FarDistance = 6000.0; MidInterval = 0.1f; FarInterval = 0.5f; }` | The band edges are **the same 15 m / 60 m that UpdateBudget uses** (02 §7), so the comparison is like for like. `constexpr`: typed compile-time constants with no storage. Distances in centimetres (Unreal units) as `double`, because 5.x world positions are double |
+| `constexpr float BelowOne = 0.99999994f;` | The largest float below 1. A Mid-band significance like 1 − 1e-9 is below 1 in `double` but **rounds to exactly 1.0f**, which would put the agent in the Near band. The clamp to `BelowOne` prevents it |
+| `const FName SignificanceTag(TEXT("UBAgent"));` | The Significance Manager groups objects by tag. `UnregisterAll(Tag)` uses it at world end |
+| `enum class EBand : uint8 { Near, Mid, Far }` (private) | The three bands as a type, so both baselines speak the same language and a typo can't produce a fourth band |
+| `BandForDistanceSquared(DistanceSquared)`: `<= Square(Near)` → Near; `< Square(Far)` → Mid; else Far | **The one edge test** both baselines use (altitude audit). Squared distances need no square root. The edges are explicit: exactly 15 m is Near, exactly 60 m is Far. Before the audit B2 compared squared distances and B3 compared distances, two tests that agreed only by rounding luck |
+| `BandForSignificance(Significance)`: `>= 1` → Near; `> 0` → Mid; else Far | The inverse mapping, for B3: the Significance Manager hands back a number, and this turns it back into a band |
+| `IntervalForBand(Band)`: `switch` → `0.f` / `MidInterval` / `FarInterval` | `TickInterval = 0` means "tick every frame". 0.1 s means about every 6th frame at 60 FPS, and 0.5 s about every 30th |
+| `SignificanceForDistanceSquared`: Near → `1.f`, Far → `0.f`, Mid → `FMath::Clamp(static_cast<float>(1.0 - FMath::GetRangePct(Near, Far, FMath::Sqrt(DistanceSquared))), TNumericLimits<float>::Min(), BelowOne)` | A linear fall-off across the Mid band gives the manager a meaningful **order** (it sorts objects by significance). `GetRangePct` is the engine's `(Value − Min) / (Max − Min)` (reuse audit). The square root is taken only in the Mid band. The clamp keeps Mid strictly inside (0, 1) after the double → float conversion (`TNumericLimits<float>::Min()` is the smallest positive float), so `BandForSignificance` returns Mid for it: **B3's bands equal B2's by construction** |
+| `OnWorldBeginPlay`: `FParse::Value(FCommandLine::Get(), TEXT("UBBaseline="), Requested); Requested.ToUpperInline();` | The mode is read **once**, at world start, and never changes during a run. `FString ==` already compares case-insensitively; the upper-case copy is for the log and the CSV metadata |
+| B3: `if (USignificanceManager::Get(&InWorld))` | `Get` is a map lookup by world. The manager is created in `OnPreWorldInitialization`, after world subsystems initialise, so it can't be fetched in `Initialize` (06 §17). It exists by begin play |
+| `UE_LOG(…, Error, …)` for a missing manager or an unknown value | A misconfigured run **fails the batch** (`run_bench.py` counts log errors) instead of silently running B0 under the name B3 |
+| `CSV_METADATA(TEXT("UBBaseline"), *Requested);` + `Display` log | The capture records which baseline produced it. Verified in the S3 smoke captures: metadata `ubbaseline = B2 / B3`, and the log line `Baseline B2 active.` |
+| `OnWorldEndPlay`: `UnregisterAll(SignificanceTag)`, `Brains.Empty()`, `Mode = None`, then `Super` | Runs after every actor's `EndPlay` (`World.cpp:6203–6210`), so the agents have normally unregistered themselves already. This is the safety net, run **while the manager still exists**: it is removed in `OnPostWorldCleanup`, before `Deinitialize`, which would be too late |
+| `GetSignificanceManager()` → the manager in B3 mode, else `nullptr` | One rule, used at every call site (simplify audit). **Looked up each time, not cached:** the manager is removed during world cleanup, so a cached raw pointer could dangle. The lookup is one map find per call site per frame |
+| `GetViewTransform`: first player controller → `PlayerCameraManager` → `GetCameraCacheView()` → `FTransform(ViewInfo.Rotation, ViewInfo.Location)` | The **same view the brains sense from**, so every consumer sees an identical camera. `GetCameraLocation()` and `GetCameraRotation()` both just return fields of this cached view (`PlayerCameraManager.cpp:774–782`), so one call replaces two virtual calls (reuse audit). Returns `false` before a camera exists, and that frame's re-tune is skipped |
+| `SetIntervalIfChanged`: `if (Brain.GetComponentTickInterval() != Interval) { Brain.SetComponentTickIntervalAndCooldown(Interval); ++FrameIntervalChanges; }` | The setter that applies **at once** (06 §18): the plain setter would make a far agent that comes close wait out its old 0.5 s cooldown. Called **only on change**, because each call reschedules the tick function in the cooldown list (H6). Calling it every frame for every agent would make the baseline a strawman. The count is published as `UBBaseline/IntervalChanges` |
+| `UFUNCTION() void HandleAgentEndPlay(AActor*, EEndPlayReason::Type)` | Bound to each agent's `OnEndPlay` with `AddDynamic`, which binds by name through reflection, so it must be a `UFUNCTION` (06 §20). **B3:** `UnregisterObject(Brain)`, because the manager holds a raw pointer and would keep calling our callbacks on a destroyed object. **B2:** `Brains.RemoveSingleSwap(Brain, EAllowShrinking::No)`, which stops at the first match (each brain is listed once) and fills the hole with the last element instead of shifting the array |
+| `AdoptNewAgents`: `const TArray<…>& Agents = Benchmark->GetAgents();` and `if (Agents.Num() == AdoptedAgents …) return;` | A reference, not a copy. On a normal frame the whole adoption costs one comparison |
+| `!ensureMsgf(Agents.Num() > AdoptedAgents, …)` | Agents are adopted **by index**, which is correct only because the benchmark's list is append-only. That contract is now written on `GetAgents()` (D3). If a future change ever compacted the list, adoption would silently skip agents and the baseline would be wrong; the `ensure` reports it instead (altitude audit). An `ensure` logs a call stack once and continues; it isn't a crash |
+| The significance lambda: `[](FManagedObjectInfo* Info, const FTransform& View) -> float { … SignificanceForDistanceSquared(FVector::DistSquared(Owner->GetActorLocation(), View.GetLocation())); }` | **Runs on worker threads** (`Update` uses `ParallelFor`). It captures nothing and only reads transforms, at a point in the frame (after `TG_PostPhysics`) where nothing writes them |
+| The post lambda: `[this](Info, OldSignificance, NewSignificance, bFinal)` with `EPostSignificanceType::Sequential` | `Sequential` runs on the **game thread** after the parallel pass, where changing tick intervals is allowed; `Concurrent` would run it on worker threads. `bFinal` is `true` only for the call made inside `UnregisterObject` (`SignificanceManager.cpp:325–327`), which is ignored |
+| `if (!bFinal && NewBand != BandForSignificance(OldSignificance))` | Only a **band change** touches the component (efficiency audit). That's what a competent Significance Manager user writes, because the manager hands over both values. It holds from the very first call: the manager starts every object at significance 1 (`SignificanceManager.h:72`) and registration passes `Old = 1` (`.cpp:236`). That is the Near band, which matches a new brain's interval of 0 |
+| Both lambdas are defined **once**, before the loop | Each `RegisterObject` copies them into its own `TFunction`. Defining them inside the loop rebuilt the same objects per agent (simplify audit) |
+| `if (!SignificanceManager) Brains.Reserve(Agents.Num());` | B2 only: one allocation for the initial set, and one for the wave, instead of repeated growth |
+| The loop from `AdoptedAgents`: `IsValid(Agent)` → `GetBrain()`; `OnEndPlay.AddDynamic(…)`; B3 `RegisterObject(Brain, Tag, …, Sequential, …)`, else `Brains.Add(Brain)` | Each agent is bound **once**, when it's adopted. B3's brains live in the manager, B2's in `Brains`, so neither mode pays for the other's bookkeeping |
+| `Retune()`: no view → return; B3 → `SignificanceManager->Update(MakeArrayView(&View, 1)); return;`; B2 → loop over `Brains` | Early returns keep each mode's path flat (simplify audit). `MakeArrayView(&View, 1)` passes the single viewpoint as an array view without building an array. Epic's design expects **the game** to call `Update` (header lines 26–27). The B2 loop: `IsValid(Brain)`, then distance² to the camera → band → interval → `SetIntervalIfChanged` |
+| `Tick`: `if (Mode == EMode::None) return;` | In B0, B1 and UB the driver costs one comparison per frame |
+| `{ CSV_SCOPED_TIMING_STAT(UBBaseline, Register); AdoptNewAgents(); }` | One-off registration (the initial set and the wave frame) is timed **separately** from the per-frame re-tuning, so a spawn frame doesn't pollute the steady-state cost. In the CSV the column is **`UBBaseline/GameThread/Register`**: the profiler inserts the thread name for timing stats (seen in the S3 smoke captures) |
+| `FrameIntervalChanges = 0; { CSV_SCOPED_TIMING_STAT(UBBaseline, Retune); Retune(); }` | The re-tuning is part of these approaches' real cost, so it is measured (H6). CSV column **`UBBaseline/GameThread/Retune`**. In B3 this scope includes the manager's parallel pass and the post callbacks |
+| `CSV_CUSTOM_STAT(UBBaseline, IntervalChanges, FrameIntervalChanges, ECsvCustomStatOp::Set);` | One value per frame: how many agents changed band. Together with `Retune` it separates "how often" from "how expensive" |
+| `GetStatId` → `RETURN_QUICK_DECLARE_CYCLE_STAT(…, STATGROUP_Tickables)` | Required by `FTickableGameObject`; gives the tick a named entry in `stat` and Insights |
+| **Not in this class:** the cost of the engine's cooldown list | An agent that has ever had a non-zero interval stays on the tick manager's cooling-down list and is rescheduled every frame (`TickTaskManager.cpp:1538`), even after returning to 0. That cost is inside `GameThreadTime` (so the comparison stays fair) but outside `Retune`. It is examined with Unreal Insights (09, H6) |
+
+### D2. Build and project files for S3
+
+| File | Line | Why |
+|---|---|---|
+| `UpdateBudget.uproject` | `{ "Name": "SignificanceManager", "Enabled": true }` | The Significance Manager is an engine **plugin**, off by default. Without it the module can't load |
+| `UpdateBudget.Build.cs` | `PrivateDependencyModuleNames.AddRange(new string[] { "SignificanceManager" });` | Private: only `.cpp` files include its header, so modules that depend on ours don't inherit it |
+| `Tools\run_bench.py` | `"B2": "-UBBaseline=B2"`, `"B3": "-UBBaseline=B3"` | One command-line value selects the mode. Everything else on the command line is identical to B0 |
+
+### D3. `UBBenchmarkSubsystem.h`: the agent-list contract
+
+| Line | Why |
+|---|---|
+| `/** The spawned agents, in spawn order. Append-only: an index stays valid for the world's lifetime … */ const TArray<TObjectPtr<AUBDemoAgent>>& GetAgents() const` | A contract that another class relies on is **written where the data lives**, not only where it's used (altitude audit). Destroyed agents stay in the list as invalid entries; every user checks `IsValid()` |
