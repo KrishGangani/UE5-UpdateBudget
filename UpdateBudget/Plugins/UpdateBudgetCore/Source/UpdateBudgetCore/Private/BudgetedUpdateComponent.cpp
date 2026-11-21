@@ -33,6 +33,11 @@ void UBudgetedUpdateComponent::OnRegister()
 {
 	Super::OnRegister();
 
+	// Asked here, before any update can run (a first registration precedes BeginPlay). Native classes always answer false
+	// (Class.cpp:6525-6529); a Blueprint class answers true when it, or a Blueprint parent, implements the event
+	// (BlueprintGeneratedClass.cpp:1402-1406).
+	bHasBlueprintUpdate = GetClass()->IsFunctionImplementedInScript(GET_FUNCTION_NAME_CHECKED(UBudgetedUpdateComponent, ReceiveBudgetedUpdate));
+
 	// Re-registered while playing (ReregisterComponent): the engine brings the native tick back without a second
 	// BeginPlay (Actor.cpp:6443-6451), so the registry link comes back here. A first registration joins in BeginPlay.
 	if (HasBegunPlay())
@@ -134,6 +139,10 @@ void UBudgetedUpdateComponent::RunUpdate()
 		Current->RecordUpdate(*this, PreviousUpdateTime);
 	}
 
-	const double DeltaSeconds = (PreviousUpdateTime < 0.0) ? 0.0 : LastUpdateTime - PreviousUpdateTime;
-	OnBudgetedUpdate(static_cast<float>(DeltaSeconds));
+	const float DeltaSeconds = static_cast<float>((PreviousUpdateTime < 0.0) ? 0.0 : LastUpdateTime - PreviousUpdateTime);
+	OnBudgetedUpdate(DeltaSeconds);
+	if (bHasBlueprintUpdate)
+	{
+		ReceiveBudgetedUpdate(DeltaSeconds);
+	}
 }

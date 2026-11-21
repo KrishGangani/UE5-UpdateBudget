@@ -125,6 +125,8 @@
 | 34 | Small utilities in S6: `AddOnScreenDebugMessage`, `UE_CLOG`, `FString::SanitizeFloat`, `FMath::Lerp` / `GetRangePct` / `Tan`, `GetDefault` | subsystem, significance |
 | 35 | Reacting to a cvar change and acting between frames: `OnChangedDelegate`, `FWorldDelegates::OnWorldPostActorTick` (S7) | live switching |
 | 36 | Native multicast delegates, `DrawDebugPoint`, `FColor::MakeRedToGreenColorFromScalar`, the `SetComponentTickEnabled` override (S7) | `OnFrameStats`, debug draw, component |
+| 37 | `BlueprintImplementableEvent`, `Blueprintable`, `IsFunctionImplementedInScript`, `GET_FUNCTION_NAME_CHECKED` (S8) | `ReceiveBudgetedUpdate`, the Event Tick warning |
+| 38 | Building a Blueprint in code: `CreateBlueprint`, `AddDefaultEventNode`, `FGraphNodeCreator`, `TryCreateConnection`, `CompileBlueprint`, `RF_Standalone` cleanup with `ON_SCOPE_EXIT`; `TSet::Add` with its "already there" flag (S8) | the S8 test, `Register` |
 
 ## 5. `UActorComponent` lifecycle and `PrimaryComponentTick`
 
@@ -649,3 +651,42 @@
 | `DrawDebugPoint(const UWorld*, FVector const&, float Size, FColor const&, bool bPersistentLines = false, float LifeTime = -1.f, uint8 DepthPriority = 0)` (`Engine/Public/DrawDebugHelpers.h:24`) | A screen-facing square of the given size; lifetime −1 draws it for one frame | `ub.Debug 2`: one point per client, tinted by recency (05 H3) | Calling it in Shipping and expecting output: without `ENABLE_DRAW_DEBUG` (`:14`) the call is an empty inline function (`:186`) |
 | `FColor::MakeRedToGreenColorFromScalar(float)` (`Core/Public/Math/Color.h:640`, `Core/Private/Math/Color.cpp:569–577`) | 0 = red, 0.5 = yellow, 1 = green, with the input clamped | The recency colour scale: one call per point (it replaced an HSV interpolation in the S7 simplify audit) | Passing staleness directly: 1 means *green* here, so the code passes 1 − staleness |
 | `UActorComponent::SetComponentTickEnabled` overridden (virtual, `Engine/Classes/Components/ActorComponent.h:1002`) | The one function `Activate`, `Deactivate`, replication and the async variant call (`ActorComponent.cpp:2819`, `2830`, `3087`, `1771`) | The client records gameplay's tick choice in every mode and applies it only when native (05 H3) | Calling `SetComponentTickEnabled` from the component's own mode logic: that would record the mode as gameplay's choice. The component calls `Super::` there |
+
+---
+
+## APIs added in step S8 (the Blueprint event)
+
+## 37. `BlueprintImplementableEvent`, `Blueprintable` and `IsFunctionImplementedInScript`
+
+1. **What it is.**
+   - A `UFUNCTION(BlueprintImplementableEvent)` is declared in C++ and implemented only in Blueprint. UHT generates its C++ body: it finds the function and calls `ProcessEvent` on it.
+   - `UCLASS(Blueprintable)` sets the `IsBlueprintBase` metadata (`Programs/Shared/EpicGames.UHT/Specifiers/UhtDefaultSpecifiers.cs:122–127`), which the editor needs somewhere in a class's chain before it offers a Blueprint subclass (`Editor/UnrealEd/Private/Kismet2/Kismet2.cpp:1079–1082`).
+   - `UClass::IsFunctionImplementedInScript(FName)` says whether a Blueprint in the class chain implements a function. The base version always answers false (`CoreUObject/Private/UObject/Class.cpp:6525–6529`); the Blueprint class's version checks whether the function found belongs to a Blueprint class (`Engine/Private/BlueprintGeneratedClass.cpp:1402–1406`).
+2. **Why it exists.** C++ defines *when* something happens, and designers define *what* happens, without new C++.
+3. **How it works.**
+   - `ProcessEvent` returns at once when the function has no script, which is the case for a class that doesn't implement the event (`ScriptCore.cpp:2099–2101`). The call still pays the stub, the function lookup and the checks before that point (`:2055–2098`).
+   - With a Blueprint implementation, the Blueprint VM runs the compiled graph.
+   - Guarding the call with a cached `IsFunctionImplementedInScript` result removes even the empty call for classes that don't implement it. The engine guards `ReceiveTick` with a class-flag test (`ActorComponent.cpp:1886–1888`).
+   - `GET_FUNCTION_NAME_CHECKED(Class, Function)` (`Core/Public/Misc/AssertionMacros.h:520`) turns a function name into an `FName`, checked at compile time.
+4. **When to use it.** Hooks for prototyping, and for logic that is cheap or rare.
+5. **When not to.** Hot per-agent logic at scale: every call goes through the VM. Measure it first (09, S8), and move hot logic to C++ (`OnBudgetedUpdate`).
+6. **Common mistakes.**
+   - Calling the event unguarded for thousands of native objects: each call costs a `ProcessEvent` that does nothing.
+   - Forgetting `Blueprintable` on the class, so the editor offers no Blueprint subclass.
+   - Hard-coding the function name as a string: a rename then breaks silently.
+   - Making a class `Blueprintable` and forgetting that it now exposes every inherited event too. Here, Event Tick runs only in native mode, so the subsystem warns about it (05 I2).
+7. **Example.** `UFUNCTION(BlueprintImplementableEvent) void ReceiveStep(float Dt);` … in `OnRegister`: `bHasBP = GetClass()->IsFunctionImplementedInScript(GET_FUNCTION_NAME_CHECKED(UMyComponent, ReceiveStep));` … `if (bHasBP) ReceiveStep(Dt);`
+8. **In this project.** `ReceiveBudgetedUpdate` (05 I1), with the guard cached in `OnRegister`, and the Event Tick warning in `Register` (05 I2). The measured cost is in 09, S8.
+
+## 38. Building a Blueprint in code (editor only, for the S8 test)
+
+| API (5.8.4) | What it does | Why the test uses it | Common mistake |
+|---|---|---|---|
+| `FKismetEditorUtilities::CreateBlueprint(ParentClass, Outer, Name, BPTYPE_Normal)` (`Editor/UnrealEd/Public/Kismet2/KismetEditorUtilities.h:110`) | Creates a Blueprint object with an event graph. It is `RF_Standalone` (`Kismet2.cpp:453`) | A real Blueprint subclass of the probe, without a hand-made asset | Reusing a fixed name in the transient package: the editor keeps standalone objects (`CoreUObject/Public/UObject/GarbageCollection.h:28`), so a second run collides. The engine's test makes names unique with `MakeUniqueObjectName` (`UObjectGlobals.h:1062`; `ToolsetLibraryTest.cpp:33–43`) |
+| `UObjectBaseUtility::ClearFlags(RF_Standalone)` (`UObjectBaseUtility.h:79`) inside `ON_SCOPE_EXIT { … };` (`Core/Public/Misc/ScopeExit.h:73`) | Lets the next garbage collection take the Blueprint and its class; the scope guard runs on every way out | Cleanup after the test, as the engine's test does (`ToolsetLibraryTest.cpp:1698–1704`) | Marking the generated class as garbage instead: the next collection could reclaim a class a live object points at (the engine test's own warning, `ToolsetLibraryTest.cpp:1698–1699`) |
+| `FKismetEditorUtilities::AddDefaultEventNode(BP, Graph, EventName, EventClass, InOutPosY)` (`KismetEditorUtilities.h:542`, `Kismet2.cpp:671–745`) | Adds an override node for an event, as a disabled "ghost" node (`:741`) | The Budgeted Update event node | Expecting it to always add a node: it returns null when the event is hidden from the class or not allowed by the editor settings (`:678–684`) |
+| `FGraphNodeCreator<UK2Node_CallFunction>` → `CreateNode(false)`, `SetFromFunction(UFunction*)` (`K2Node_CallFunction.h:209`), `Finalize()` (`Engine/Classes/EdGraph/EdGraph.h:283–307`) | Places a node the way the editor does: guid, post-placement, pins | The call to `CountCall` | Setting the function after `Finalize`: `Finalize` builds the pins from what the node knows then (`:303–306`) |
+| `UEdGraphSchema_K2::TryCreateConnection(PinA, PinB)` (`EdGraphSchema_K2.h:569`) and `UEdGraphSchema_K2::PN_Then` (`:423`) | Connects two pins if the schema allows it, and returns whether it did; the link is made by `MakeLinkTo` (`EdGraphSchema.cpp:474–494`), which turns connected ghost nodes into real ones (`EdGraphPin.cpp:514`, `538–539`) | Event "then" → call "exec" | Leaving the event unconnected: it stays a ghost node, and the event isn't implemented |
+| `FKismetEditorUtilities::CompileBlueprint(BP)` (`KismetEditorUtilities.h:169`) and `UBlueprint::Status` (`BS_Error`, `Engine/Classes/Engine/Blueprint.h:48`) | Compiles the graph into the generated class | `Blueprint->GeneratedClass` is the class the test instantiates | Using `GeneratedClass` without checking the status |
+| `GInitRunaway()` (`CoreUObject/Public/UObject/Stack.h:460`, `Private/UObject/ScriptCore.cpp:126–129`) and `UEngine::MaximumLoopIterationCount` (`Engine/Classes/Engine/Engine.h:1641–1643`; 1,000,000 in `BaseEngine.ini:317`, applied at `UnrealEngine.cpp:2523`) | The VM's runaway guard: it counts Blueprint branch steps since the last `GInitRunaway`, and past the limit aborts the call and reports an infinite loop (`ScriptCore.cpp:1268–1294`). The world tick calls `GInitRunaway` once per frame (`LevelTick.cpp:1563`). Only with `DO_BLUEPRINT_GUARD` (`Core/Public/Misc/CoreMisc.h:338–344`) | The S8 test runs 100,000 events per batch and resets the count before each batch, as a frame would | Running more Blueprint calls in one frame than the guard allows, in a loop or a test: one call is skipped, with an error in the log. A minimal event counts about 3 steps (09 S8) |
+| `TSet::Add(Key, &bAlreadyInSet)` (`Core/Public/Containers/SparseSet.h.inl:415`) with `FTopLevelAssetPath` keys (`UClass::GetClassPathName`, `Class.h:4358`; hash at `TopLevelAssetPath.h:162–165`) | Adds a key and reports in the same lookup whether it was already there | The Event Tick warning, once per class and world (05 I2) | A `Contains` followed by an `Add`: two lookups for one question |

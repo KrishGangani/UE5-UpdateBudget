@@ -4,6 +4,7 @@
 
 #include "BudgetedUpdateComponent.h"
 #include "Subsystems/WorldSubsystem.h"
+#include "UObject/TopLevelAssetPath.h"
 #include "UpdateBudgetScheduler.h"
 #include "UpdateBudgetSettings.h"
 #include "UpdateBudgetTickFunction.h"
@@ -213,6 +214,9 @@ private:
 
 	/** This frame's numbers, filled as the frame runs, then published and reset in Tick(). */
 	FUpdateBudgetFrameReport Frame;
+
+	/** Client classes already warned about in this world: their Blueprint implements Event Tick (see Register). */
+	TSet<FTopLevelAssetPath> EventTickClassesWarned;
 };
 
 #undef UE_API

@@ -226,3 +226,29 @@ void UMyComponent::TakeOver()
 - **What it does.** A qualified call (`Super::F`, which is `BaseClass::F`) calls that exact version, **without** virtual dispatch. An unqualified call inside the class goes through the vtable and lands back in your own override.
 - **When it matters.** When the override adds bookkeeping that must apply to outside callers but not to the class's own internal changes.
 - **In our code (S7):** `UBudgetedUpdateComponent` records gameplay's tick choice in its `SetComponentTickEnabled` override. Its own mode changes (`SetDrivenByScheduler`, the `TickComponent` guard) call `Super::SetComponentTickEnabled`, so they are never mistaken for gameplay's choice (05 H3).
+
+## 24. Scope guards: cleanup that runs on every way out
+
+```cpp
+UBlueprint* Blueprint = CreateIt();
+if (!Blueprint) return false;
+ON_SCOPE_EXIT { Blueprint->ClearFlags(RF_Standalone); };   // runs at every return below, and at the end
+if (!StepOne()) return false;
+FTestWorldWrapper Wrapper;                                  // declared later, so destroyed first
+```
+- **What it does.** `ON_SCOPE_EXIT` makes a local object whose destructor runs the lambda (`Core/Public/Misc/ScopeExit.h:73`): RAII without writing a class. Locals are destroyed in reverse order, so the guard above runs after the test world is gone (§18).
+- **When it matters.** In a function with many early returns, where a cleanup call before each `return` would be missed on one of them.
+- **In our code (S8):** the Blueprint test clears `RF_Standalone` on every path (05 I4).
+
+## 25. Name a lambda once, pass it to a template
+
+```cpp
+template <typename FCall> double NanosecondsPerCall(int32 Count, FCall&& Call) { /* … */ Call(); /* … */ }
+
+const auto RunNative = [Native] { Native->RunUpdate(); };
+NanosecondsPerCall(1000, RunNative);     // warm-up
+NanosecondsPerCall(100000, RunNative);   // the same code, timed
+```
+- **What it does.** Every lambda has its own type, and the template is instantiated for it, so the call inside the loop is a direct call the compiler can inline. A `TFunction` would call through a pointer on every iteration. Naming the lambda once means the warm-up and the timed rounds run exactly the same code.
+- **When it matters.** In micro-timing: the thing measured must not change between uses, and the harness must add as little as possible.
+- **In our code (S8):** `RunNative`, `RunScripted` and `RunUnguarded` in the Blueprint test (05 I4).

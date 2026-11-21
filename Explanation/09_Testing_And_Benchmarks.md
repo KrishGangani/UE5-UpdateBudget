@@ -379,6 +379,42 @@ The driver's own re-tuning grows roughly linearly with N, at about 0.1 µs per a
   - **Applying a pending switch while paused**, from another hook: a paused world runs no updates, so nothing is lost by waiting.
 - **Found while checking the S6 commit:** a scripted doc edit had turned `\r` in `Tools\run_tests.bat` into a carriage return, so git treated 09 as binary. Fixed in this commit; a scan for lone carriage returns is now part of the pre-commit audit (07).
 
+## Step S8 · The Blueprint event, and its measured cost (2026-11-21)
+
+| # | Check | Result |
+|---|---|---|
+| S8-a | **Build** (`Tools\build.bat`, Development editor) | ✅ **0 errors, 0 warnings** (MSVC 14.44.35229). The S8 build: 17 actions, 17.9 s (job `20261121_041506_74a50a`). The re-run after the test fix in S8-b: 4 actions, 10.5 s (job `20261121_050554_178998`). Every source was older than the re-run's start, so it compiled the final code, after the code-review and simplify fixes |
+| S8-b | **All automation tests** (`Tools\run_tests.bat UpdateBudget`, headless, through the job queue) | ✅ **25 / 25 passed** in the re-run, `TEST COMPLETE. EXIT CODE: 0`, 0 errors and 0 warnings in the log: lifetime (8), scheduler (11), significance (5) and `Blueprint.EventCost` (1, editor only: it needs the Blueprint compiler). Job `20261121_050554_178998`, 26.6 s. **The first run failed `EventCost`** (job `20261121_041506_74a50a`, exit 255; the other 24 passed): `Runaway loop detected (over 1,000,000 iterations)`, and the count was 499,999 of 500,000. In editor and development builds the Blueprint VM counts branch steps until the world tick resets the count, once per frame, and the test had made all 501,000 Blueprint calls in one frame. The test now resets the count before each batch, as a frame would (05 I4, 07) |
+| S8-c | **The Blueprint event's cost, measured** (03 S8's check: "its cost per call is measured and documented, not assumed"), `UpdateBudget.Blueprint.EventCost` on a Blueprint built and compiled in code (05 I4) | ✅ Median of 5 alternating rounds × 100,000 calls (the re-run): **native `RunUpdate` 4.1 ns; the same `RunUpdate` on the Blueprint subclass 1,142.7 ns; so the minimal Blueprint event costs about 1,139 ns (1.14 µs) per update.** The unguarded event call on the native class costs 35.3 ns, so without the guard every native client would pay that on every update, against 4.1 ns for the whole guarded `RunUpdate`. The first run, with one call aborted, measured 3.6 / 1,108.6 / 1,105.1 / 32.7 ns |
+
+**What S8-c means, and what it doesn't.**
+- It is an **editor** measurement (Development, headless), in a tight loop on one object with warm caches. It compares one call with another on this machine; it is not a benchmark result, and it isn't one of SC1–SC7.
+- The Blueprint here is the smallest that counts as implemented: the event and one call node. A real graph costs more: every node is more work for the VM.
+- The cost is inside the update the scheduler times (`RunClient` times all of `RunUpdate`), so a Blueprint client's event spends the budget like its C++ work.
+- The Blueprint in this test carries the editor's debug instructions: the compiler adds them only when it runs in the editor, not when cooking (`KismetCompilerMisc.cpp:2502–2517`; `EX_Tracepoint` and `EX_WireTracepoint`, `KismetCompilerVMBackend.cpp:1969–1975`). A packaged game should therefore pay less per event; how much less is not measured yet.
+- For scale, in this editor build: at the 2 ms default budget, about 1,750 minimal Blueprint events would fill a frame with no gameplay work at all. The hook is for prototyping, as 02 §10 planned; hot logic belongs in `OnBudgetedUpdate`.
+- **The runaway guard, measured by accident.** It aborts the call that passes 1,000,000 counted steps, then resets its count (`ScriptCore.cpp:1268–1294`). In the first run the warning came about 0.38 s into the timed rounds, early in the fourth of five rounds (about 120 ms each; all five took 0.62 s). That fits about **3 steps per minimal event**: the 333,334th call. So in development builds a frame would need over 300,000 Blueprint updates to reach the guard; at 1.14 µs each that is about 0.38 s of script in one frame.
+
+**Audit trail for S8:**
+- `code-review` (medium): 1 important finding and 6 minor ones, all fixed or documented.
+  - **Important: `Blueprintable` also exposes Event Tick, which runs only natively** (`ActorComponent.cpp:1886–1888`). A Blueprint client using it would do more work in native mode than budgeted, and its Event Tick logic would silently stop under the scheduler. Now the subsystem warns once per class and world (05 I2), and the class comment says only Budgeted Update is scheduled.
+  - The "has a Blueprint update" flag moved from `BeginPlay` to `OnRegister`, so it is right before any update can run.
+  - The test's Blueprint was never released: `RF_Standalone` is now cleared on every way out. Its comment had said transient Blueprints are never collected; they are kept because they are standalone (`Kismet2.cpp:453`).
+  - A check that could never fail (the native probe never running the event) was dropped.
+  - A comment said a Blueprint class answers true only if it implements the event itself; a Blueprint parent counts too.
+  - The editor-only test flags moved into the shared flags header.
+  - The probe type exists in every configuration, like the other test types: now stated in the file comment.
+- `simplify` (4 parallel reviews). Applied:
+  - **The Event Tick warning moved into `Register`, in every mode** (the altitude, simplification and efficiency angles agreed). The first fix had warned from the component at the switch to budgeted mode, through a per-component flag, a process-wide `static` set and a new shared log header. The difference exists in both modes, and a per-world set warns again in a new PIE session. The flag, the `static` and the header are gone.
+  - Three named lambdas instead of six, so the warm-up and the timed rounds run the same code.
+  - One output path for the result line (a Display log line already reaches the test report).
+- Skipped, with reasons:
+  - **Caching the event's `UFunction*` and calling `ProcessEvent` directly:** it would bypass the stub UHT generates and add 8 bytes per component, to save a lookup only Blueprint clients pay. Recorded in 11 as a candidate.
+  - **A separate editor-only test module**, so editor builds of the runtime module don't link `UnrealEd` and `BlueprintGraph`: a structural change outside this step. Packaged games are unaffected; recorded in 02 §13 as a follow-up.
+  - Making `HasBlueprintUpdate()` protected: it is read-only, like the other two state accessors.
+  - `Blueprintable` repeated on the probe: kept on purpose, next to the `NotBlueprintable` test classes.
+  - Moving the result arrays and taking the median of per-round differences: outside the timed region, or a different statistic for the same alternating rounds.
+
 ---
 
 ## Phases 7–8 (to be written)

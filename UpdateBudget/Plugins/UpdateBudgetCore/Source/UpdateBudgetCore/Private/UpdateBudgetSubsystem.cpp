@@ -161,6 +161,19 @@ void UUpdateBudgetSubsystem::Register(UBudgetedUpdateComponent* Client)
 	}
 	Client->Subsystem = this;
 
+	// A Blueprint's Event Tick is called from the native tick only (ActorComponent.cpp:1886-1888), so such a client does
+	// more work in the native mode than in the budgeted one. Said once per class and world; native classes answer false
+	// at once (Class.cpp:6525-6529).
+	const UClass* Class = Client->GetClass();
+	if (Class->IsFunctionImplementedInScript(GET_FUNCTION_NAME_CHECKED(UBudgetedUpdateComponent, ReceiveTick)))
+	{
+		bool bAlreadyWarned = false;
+		EventTickClassesWarned.Add(Class->GetClassPathName(), &bAlreadyWarned);
+		UE_CLOG(!bAlreadyWarned, LogUpdateBudget, Warning,
+			TEXT("%s implements Event Tick, which runs only while the component ticks natively, not when the scheduler drives it. Put the logic in the Budgeted Update event, which runs in every mode."),
+			*Class->GetPathName());
+	}
+
 	// Applied at once, even when the add itself is deferred: a component spawned during the loop has just had its
 	// native tick registered (Actor.cpp:4824), and it must not tick natively in a later group of this frame.
 	// Applied in both modes: a client that was scheduler-driven elsewhere gets its native tick back here.
