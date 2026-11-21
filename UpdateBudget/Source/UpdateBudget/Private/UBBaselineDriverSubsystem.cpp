@@ -5,7 +5,6 @@
 #include "Camera/PlayerCameraManager.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
-#include "Math/NumericLimits.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "ProfilingDebugging/CsvProfiler.h"
@@ -15,6 +14,7 @@
 #include "UBBenchmarkSubsystem.h"
 #include "UBDemoAgent.h"
 #include "UBDemoBrainComponent.h"
+#include "UpdateBudgetSettings.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(UBBaselineDriverSubsystem)
 
@@ -24,13 +24,6 @@ CSV_DEFINE_CATEGORY(UBBaseline, true);
 
 namespace UBBaseline
 {
-	/** Band edges: the same near/far distances UpdateBudget uses (02_System_Architecture.md section 7). */
-	constexpr double NearDistance = 1500.0;   // cm
-	constexpr double FarDistance = 6000.0;    // cm
-	constexpr float MidInterval = 0.1f;       // s
-	constexpr float FarInterval = 0.5f;       // s
-	/** The largest float below 1: keeps a Mid-band significance strictly below 1 after the double -> float conversion. */
-	constexpr float BelowOne = 0.99999994f;
 	const FName SignificanceTag(TEXT("UBAgent"));
 }
 
@@ -47,48 +40,10 @@ void UUBBaselineDriverSubsystem::Initialize(FSubsystemCollectionBase& Collection
 	Super::Initialize(Collection);
 }
 
-UUBBaselineDriverSubsystem::EBand UUBBaselineDriverSubsystem::BandForDistanceSquared(double DistanceSquared)
+FUBBaselineBands UUBBaselineDriverSubsystem::ReadBands()
 {
-	if (DistanceSquared <= FMath::Square(UBBaseline::NearDistance))
-	{
-		return EBand::Near;
-	}
-	return (DistanceSquared < FMath::Square(UBBaseline::FarDistance)) ? EBand::Mid : EBand::Far;
-}
-
-UUBBaselineDriverSubsystem::EBand UUBBaselineDriverSubsystem::BandForSignificance(float Significance)
-{
-	if (Significance >= 1.f)
-	{
-		return EBand::Near;
-	}
-	return (Significance > 0.f) ? EBand::Mid : EBand::Far;
-}
-
-float UUBBaselineDriverSubsystem::IntervalForBand(EBand Band)
-{
-	switch (Band)
-	{
-	case EBand::Near:
-		return 0.f;
-	case EBand::Mid:
-		return UBBaseline::MidInterval;
-	default:
-		return UBBaseline::FarInterval;
-	}
-}
-
-float UUBBaselineDriverSubsystem::SignificanceForDistanceSquared(double DistanceSquared)
-{
-	const EBand Band = BandForDistanceSquared(DistanceSquared);
-	if (Band != EBand::Mid)
-	{
-		return (Band == EBand::Near) ? 1.f : 0.f;
-	}
-	// Linear falloff across the Mid band. The clamp keeps the value strictly inside (0, 1), so BandForSignificance
-	// returns Mid for it: B3's bands equal B2's by construction, not by rounding luck.
-	const double Falloff = 1.0 - FMath::GetRangePct(UBBaseline::NearDistance, UBBaseline::FarDistance, FMath::Sqrt(DistanceSquared));
-	return FMath::Clamp(static_cast<float>(Falloff), TNumericLimits<float>::Min(), UBBaseline::BelowOne);
+	const TArray<FUpdateBudgetCategory> Categories = GetDefault<UUpdateBudgetSettings>()->GetCategories();
+	return FUBBaselineBands::FromCategory(FUpdateBudgetCategory::Pick(Categories, GetDefault<UUBDemoBrainComponent>()->GetBudgetCategory()));
 }
 
 void UUBBaselineDriverSubsystem::OnWorldBeginPlay(UWorld& InWorld)
@@ -121,8 +76,13 @@ void UUBBaselineDriverSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 
 	if (Mode != EMode::None)
 	{
+		Bands = ReadBands();
 		CSV_METADATA(TEXT("UBBaseline"), *Requested);
-		UE_LOG(LogUBBaseline, Display, TEXT("Baseline %s active."), *Requested);
+		// The intervals analyse_baselines.py needs for its H4 lags, so it never assumes them; the log line has the rest.
+		CSV_METADATA(TEXT("UBIntervalMid"), *FString::SanitizeFloat(Bands.MidInterval));
+		CSV_METADATA(TEXT("UBIntervalFar"), *FString::SanitizeFloat(Bands.FarInterval));
+		UE_LOG(LogUBBaseline, Display, TEXT("Baseline %s active: bands %.0f / %.0f cm, intervals %.3f / %.3f / %.3f s."),
+			*Requested, Bands.NearDistance, Bands.FarDistance, Bands.NearInterval, Bands.MidInterval, Bands.FarInterval);
 	}
 }
 
@@ -203,23 +163,24 @@ void UUBBaselineDriverSubsystem::AdoptNewAgents()
 
 	// B3 callbacks. The significance function runs on worker threads (Update uses ParallelFor). It only reads
 	// transforms, during a part of the frame where nothing writes them (after TG_PostPhysics, before end-of-frame updates).
-	auto SignificanceFunction = [](USignificanceManager::FManagedObjectInfo* Info, const FTransform& View) -> float
+	// Bands is written only in OnWorldBeginPlay, so the worker threads can read it through 'this'.
+	auto SignificanceFunction = [this](USignificanceManager::FManagedObjectInfo* Info, const FTransform& View) -> float
 	{
 		const UActorComponent* Component = static_cast<const UActorComponent*>(Info->GetObject());
-		return SignificanceForDistanceSquared(FVector::DistSquared(Component->GetOwner()->GetActorLocation(), View.GetLocation()));
+		return Bands.SignificanceForDistanceSquared(FVector::DistSquared(Component->GetOwner()->GetActorLocation(), View.GetLocation()));
 	};
 	// Sequential: runs on the game thread after the parallel pass, where changing tick intervals is allowed.
 	// Old and new significance are both supplied, so only a band change touches the component. That holds from the
 	// first call: the manager starts every object at significance 1 (SignificanceManager.h:72) and registration passes
-	// Old = 1 (SignificanceManager.cpp:236), the Near band, which matches a new brain's interval of 0.
+	// Old = 1 (SignificanceManager.cpp:236), the Near band, so each brain starts with the Near interval (set below).
 	// Capturing 'this' is safe: every registration is removed in HandleAgentEndPlay or OnWorldEndPlay, both of which
 	// run before this subsystem is destroyed.
 	auto PostSignificanceFunction = [this](USignificanceManager::FManagedObjectInfo* Info, float OldSignificance, float NewSignificance, bool bFinal)
 	{
-		const EBand NewBand = BandForSignificance(NewSignificance);
-		if (!bFinal && NewBand != BandForSignificance(OldSignificance))
+		const EUBBaselineBand NewBand = FUBBaselineBands::BandForSignificance(NewSignificance);
+		if (!bFinal && NewBand != FUBBaselineBands::BandForSignificance(OldSignificance))
 		{
-			SetIntervalIfChanged(*static_cast<UUBDemoBrainComponent*>(Info->GetObject()), IntervalForBand(NewBand));
+			SetIntervalIfChanged(*static_cast<UUBDemoBrainComponent*>(Info->GetObject()), Bands.IntervalForBand(NewBand));
 		}
 	};
 
@@ -227,6 +188,10 @@ void UUBBaselineDriverSubsystem::AdoptNewAgents()
 	{
 		Brains.Reserve(Agents.Num());
 	}
+	// The bands are the brain class's default category (ReadBands); UB uses each brain's own. A brain that differs would
+	// make the comparison unfair, so it is an error: the batch fails instead of comparing unlike things.
+	const int32 BandsCategory = GetDefault<UUBDemoBrainComponent>()->GetBudgetCategory();
+	bool bReportedCategory = false;
 	for (int32 Index = AdoptedAgents; Index < Agents.Num(); ++Index)
 	{
 		AUBDemoAgent* Agent = Agents[Index];
@@ -235,9 +200,17 @@ void UUBBaselineDriverSubsystem::AdoptNewAgents()
 		{
 			continue;
 		}
+		if (!bReportedCategory && Brain->GetBudgetCategory() != BandsCategory)
+		{
+			UE_LOG(LogUBBaseline, Error, TEXT("Agent %d's brain uses category %d, but B2/B3 band every brain with category %d."),
+				Index, Brain->GetBudgetCategory(), BandsCategory);
+			bReportedCategory = true;
+		}
 		Agent->OnEndPlay.AddDynamic(this, &UUBBaselineDriverSubsystem::HandleAgentEndPlay);
 		if (SignificanceManager)
 		{
+			// The manager's starting band is Near (see above). A no-op with the default settings: a new brain ticks every frame.
+			SetIntervalIfChanged(*Brain, Bands.NearInterval);
 			SignificanceManager->RegisterObject(Brain, UBBaseline::SignificanceTag, SignificanceFunction,
 				USignificanceManager::EPostSignificanceType::Sequential, PostSignificanceFunction);
 		}
@@ -271,7 +244,7 @@ void UUBBaselineDriverSubsystem::Retune()
 	{
 		if (IsValid(Brain))
 		{
-			SetIntervalIfChanged(*Brain, IntervalForBand(BandForDistanceSquared(FVector::DistSquared(Brain->GetOwner()->GetActorLocation(), ViewLocation))));
+			SetIntervalIfChanged(*Brain, Bands.IntervalForBand(Bands.BandForDistanceSquared(FVector::DistSquared(Brain->GetOwner()->GetActorLocation(), ViewLocation))));
 		}
 	}
 }
@@ -285,13 +258,15 @@ void UUBBaselineDriverSubsystem::Tick(float DeltaTime)
 		return;
 	}
 
+	// Reset before adoption, so the interval a B3 brain gets when it is adopted counts in the frame it happens, as B2's
+	// first re-tune does.
+	FrameIntervalChanges = 0;
 	{
 		// One-off setup work (registration) is timed separately from the per-frame re-tuning.
 		CSV_SCOPED_TIMING_STAT(UBBaseline, Register);
 		AdoptNewAgents();
 	}
 
-	FrameIntervalChanges = 0;
 	{
 		// The re-tuning work is part of these approaches' real cost, so it is timed (hypothesis H6).
 		CSV_SCOPED_TIMING_STAT(UBBaseline, Retune);

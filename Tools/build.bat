@@ -2,7 +2,7 @@
 rem P01 UpdateBudget - build one target from the command line (reproducible; no IDE needed).
 rem Usage: build.bat [Target] [Configuration]
 rem   Target:        UpdateBudgetEditor (default) | UpdateBudget
-rem   Configuration: Development (default) | Test | Shipping | DebugGame
+rem   Configuration: Development (default) | Shipping | DebugGame (the launcher engine cannot build Test)
 setlocal
 set "UE_ROOT=C:\Program Files\Epic Games\UE_5.8"
 set "PROJECT=%~dp0..\UpdateBudget\UpdateBudget.uproject"

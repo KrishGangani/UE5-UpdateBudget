@@ -4,6 +4,7 @@
 
 #include "Engine/EngineTypes.h"
 #include "Subsystems/WorldSubsystem.h"
+#include "UBBaselineBands.h"
 #include "UBBaselineDriverSubsystem.generated.h"
 
 class AActor;
@@ -15,13 +16,14 @@ class UUBDemoBrainComponent;
  * The common hand-made fixes for "too many ticking actors", implemented the way a team would write them,
  * so UpdateBudget is compared against good native practice, not only against doing nothing.
  *
- *   -UBBaseline=B2  every frame: distance from the camera -> a TickInterval band (0 s / 0.1 s / 0.5 s)
+ *   -UBBaseline=B2  every frame: distance from the camera -> a TickInterval band (0 s / 0.1 s / 0.5 s by default)
  *   -UBBaseline=B3  every frame: USignificanceManager::Update(camera) -> significance -> the same bands,
  *                   applied in a Sequential post-significance callback (Epic's intended usage)
  *
- * Both use the same band edges as UpdateBudget's near/far distances (15 m / 60 m), through one shared edge test
- * (BandForDistanceSquared), and both call SetComponentTickIntervalAndCooldown only when an agent's band changes,
- * because that setter applies at once (the plain setter waits out the old interval).
+ * Both read their bands from UpdateBudget's settings, the category the brains use (FUBBaselineBands::FromCategory):
+ * the same near/far distances (15 m / 60 m by default) and the same staleness limits at either end. Both share one
+ * edge test (BandForDistanceSquared), and both call SetComponentTickIntervalAndCooldown only when an agent's band
+ * changes, because that setter applies at once (the plain setter waits out the old interval).
  *
  * Cost accounting (hypothesis H6): "UBBaseline/Retune" times the per-frame band work and "UBBaseline/Register"
  * times adoption. A further cost lives inside the engine's tick manager: an agent that has ever had an interval
@@ -53,6 +55,12 @@ public:
 	virtual TStatId GetStatId() const override;
 	//~ End FTickableGameObject
 
+	/**
+	 * The bands B2 and B3 use: UpdateBudget's settings category for the brain class's default category, by UpdateBudget's
+	 * own rule. Every spawned brain uses the class default; per-instance categories would need one set of bands each.
+	 */
+	static FUBBaselineBands ReadBands();
+
 protected:
 	//~ Begin UWorldSubsystem
 	virtual bool DoesSupportWorldType(const EWorldType::Type WorldType) const override;
@@ -65,26 +73,6 @@ private:
 		DistanceIntervals,     // B2
 		SignificanceIntervals  // B3
 	};
-
-	/** The three update bands both baselines share. */
-	enum class EBand : uint8
-	{
-		Near,   // within 15 m: every frame
-		Mid,    // below 60 m: 0.1 s
-		Far     // from 60 m: 0.5 s
-	};
-
-	/** The one edge test: Near within 15 m, Mid below 60 m, Far from 60 m (squared distances, no square root). */
-	static EBand BandForDistanceSquared(double DistanceSquared);
-
-	/** The same bands read back from a significance: 1 -> Near, (0, 1) -> Mid, 0 -> Far. */
-	static EBand BandForSignificance(float Significance);
-
-	/** Tick interval for a band: 0 s (every frame), 0.1 s, 0.5 s. */
-	static float IntervalForBand(EBand Band);
-
-	/** B3's significance: exactly 1 in Near, strictly inside (0, 1) in Mid, exactly 0 in Far. */
-	static float SignificanceForDistanceSquared(double DistanceSquared);
 
 	/** The Significance Manager in B3 mode; null otherwise. */
 	USignificanceManager* GetSignificanceManager() const;
@@ -106,6 +94,10 @@ private:
 	void HandleAgentEndPlay(AActor* Actor, EEndPlayReason::Type EndPlayReason);
 
 	EMode Mode = EMode::None;
+
+	/** Set in OnWorldBeginPlay (ReadBands). */
+	FUBBaselineBands Bands;
+
 	int32 AdoptedAgents = 0;
 	int32 FrameIntervalChanges = 0;
 

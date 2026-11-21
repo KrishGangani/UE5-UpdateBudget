@@ -126,7 +126,7 @@ bool FUpdateBudgetBlueprintEventCostTest::RunTest(const FString& Parameters)
 
 	const double NativeMedian = Median(NativeNs);
 	const double ScriptedMedian = Median(ScriptedNs);
-	// One output path: a Display line logged during a test also lands in the test report (AutomationTest.cpp:231-254).
+	// One output path: a Display line logged during a test also lands in the test report (AutomationTest.cpp:230-254).
 	UE_LOG(LogTemp, Display, TEXT("UpdateBudget S8: RunUpdate per call, median of %d rounds x %d calls: native %.1f ns, Blueprint %.1f ns, so the Blueprint event costs %.1f ns per update. Unguarded event call on the native class: %.1f ns."),
 		Rounds, Calls, NativeMedian, ScriptedMedian, ScriptedMedian - NativeMedian, Median(UnguardedNs));
 

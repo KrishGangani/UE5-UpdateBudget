@@ -27,6 +27,9 @@ public:
 	/** Index 0 is the default; a client's BudgetCategory picks one, and an index out of range means 0. */
 	UPROPERTY(config, EditAnywhere, Category = "Categories")
 	TArray<FUpdateBudgetCategory> Categories;
+
+	/** The categories in effect: Categories, or one default category if an ini emptied the array. Never empty. */
+	UE_API TArray<FUpdateBudgetCategory> GetCategories() const;
 };
 
 #undef UE_API

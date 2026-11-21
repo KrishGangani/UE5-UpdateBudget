@@ -69,6 +69,15 @@ struct FUpdateBudgetCategory
 	{
 		return FarDistance <= NearDistance || NearMaxStaleness > FarMaxStaleness;
 	}
+
+	/**
+	 * The category a client with this index uses: the one rule for every reader (the scheduler and the B2/B3 baselines).
+	 * An index out of range means category 0. The list is never empty: it comes from UUpdateBudgetSettings::GetCategories.
+	 */
+	static const FUpdateBudgetCategory& Pick(const TArray<FUpdateBudgetCategory>& Categories, int32 Index)
+	{
+		return Categories.IsValidIndex(Index) ? Categories[Index] : Categories[0];
+	}
 };
 
 /**

@@ -91,7 +91,7 @@ Same build and environment as S2 (packaged Development, real GPU, 1280×720, fix
 | S3-d | **The S3 clean-up changed no behaviour** (batch `2026-11-21_001816_s3smoke2`, after the simplify fixes, against S3-b) | ✅ Every count in S3-c is identical in both batches, for all four configurations. No `ensure` fired |
 | S3-e | **The re-tune cost is measured** | ✅ `UBBaseline/GameThread/Retune` at N = 1,000: median 0.105 ms (B2), 0.139 ms (B3); p99 0.49 ms (B2), 0.51 ms (B3). `Register` is near zero after the first frame. One run each: a sanity check, **not** evidence |
 | S3-f | **The baseline matrix, first capture** | Batch `2026-11-21_002119_baseline`: B0–B3 × N = 100 / 1,000 / 2,000 / 4,000, warm-up 10 s, capture 60 s. Started with 6 runs, then **stopped cleanly after round 4** when the protocol changed to 4 balanced runs (with 4 configs, rounds 1–4 put every config in every order position once). 64 measured runs + priming, 0 failures, 0 log errors. **B0/B1 at N ≥ 1,000 are not usable as evidence** (S3-g); B2/B3 behaviour and the H4/H6 results are (below) |
-| S3-g | **Finding: game thread on an E-core** | B0/B1 runs sat at two stable levels about 1.6× apart (table below), and one run stepped between them mid-capture. This i7-14650HX is hybrid (8 P-cores + 8 E-cores), and Windows sometimes ran the game thread on an E-core. **Fix:** every run is pinned to the P-cores (mask `0xFFFF`), recorded per run (05 E5) |
+| S3-g | **Finding: game thread on an E-core** | B0/B1 runs sat at two stable levels about 1.6× apart (table below), and one run stepped between them mid-capture. This i7-14650HX is hybrid (8 P-cores + 8 E-cores), and Windows sometimes ran the game thread on an E-core. **Fix:** every run is pinned to the P-cores (mask `0xFFFF`), recorded per run (05 M3) |
 | S3-h | **The fix, validated** | Batch `2026-11-21_012231_affinitycheck` (B0, B1 × N = 2,000 / 4,000 × 4, capture 20 s, pinned): the two levels are gone (table below) |
 | S3-i | **The baseline matrix, re-captured pinned** | ✅ Batch `2026-11-21_015041_baseline_pinned`: B0–B3 × N = 1,000 / 2,000 / 4,000 × 4 interleaved runs + priming, warm-up 10 s, capture 60 s, every run pinned (`0xFFFF`, read back). 48 measured runs, **0 failures, 0 log errors**, 5 PSO events per run (no hitch, S2-g). **The two-level pattern is gone:** cut into 10 parts, no B0/B1 run varies by more than 1.19× between its parts (the first capture stepped by 1.6×). 22 of 24 stay within 1.09×; the two exceptions are round 1 at N = 1,000 (1.19× and 1.12×), noisy rather than stepped. Results in the table below; this batch is **the baseline UpdateBudget is compared against** (SC4) |
 
@@ -220,8 +220,8 @@ The driver's own re-tuning grows roughly linearly with N, at about 0.1 µs per a
 - `code-review` (medium) raised 9 findings: 3 important, 6 minor.
   - The important ones: the one-run default, H1 pairing by list position, and a game left running after Ctrl+C.
   - The minor ones: the per-run launch record, workloads pooled in the analysis, a NaN cost poisoning the moving average, a starvation test that never overloaded, missing docs, and 02's diagram not matching `Run`.
-- All nine are fixed (05 E2/E3/E5/E6, 02 §6).
-- One more bug was found by P03 (UE5-TestTrust): `start /wait` always returns 0. Also fixed (05 E5, 07).
+- All nine are fixed (05 P1/E3/E5/E6, 02 §6).
+- One more bug was found by P03 (UE5-TestTrust): `start /wait` always returns 0. Also fixed (05 M3, 07).
 - `simplify` (4 parallel reviews):
   - **Scheduler:**
     - one `SanitiseCostMs` for the constructor and `Run` (the constructor was a second way in for NaN);
@@ -263,12 +263,12 @@ The driver's own re-tuning grows roughly linearly with N, at about 0.1 µs per a
 
 **Audit trail for S5:**
 - `code-review` (medium): **no important bugs**; 8 smaller findings (1 pre-existing, 7 minor). Fixed:
-  - **GC-nulled entries stayed in a native-mode registry** (pre-existing since S1): only the scheduler's loop ever removed them, so the CSV `Clients` count could be too high. Now removed after every garbage collection, in every mode (05 F4).
+  - **GC-nulled entries stayed in a native-mode registry** (pre-existing since S1): only the scheduler's loop ever removed them, so the CSV `Clients` count could be too high. Now removed after every garbage collection, in every mode (05 P6).
   - **A pending client that became garbage stayed linked**: now detached.
   - **`Register` only applied budgeted mode**: a client that was scheduler-driven elsewhere would never get its native tick back in a native world. Now the mode is compared and applied either way.
   - The `FRunClient` comment still described deadlines being changed during the loop: corrected.
   - 03 had not been updated: done.
-- Documented rather than changed (02 §12, 05 F4):
+- Documented rather than changed (02 §12, 05 P6):
   - A client re-registered **inside** another client's update misses one frame. Restoring its slot isn't worth the complexity for a case this rare.
   - The native tick controls (`Deactivate`, `SetComponentTickEnabled(false)`, `TickInterval`, the owner's actor tick, `bTickEvenWhenPaused`) don't steer the scheduler.
   - A frame with zero world delta leaves every client optional (nothing is overdue in such a frame).
@@ -311,7 +311,7 @@ The driver's own re-tuning grows roughly linearly with N, at about 0.1 µs per a
 
 **Audit trail for S6:**
 - `code-review` (medium): **4 important findings, 4 minor; all fixed or documented.**
-  - **The view cone was half the horizontal FOV**, so screen corners counted as out of view. It is now the cone that circumscribes the view rectangle (05 G1), with a corner test.
+  - **The view cone was half the horizontal FOV**, so screen corners counted as out of view. It is now the cone that circumscribes the view rectangle (05 P2), with a corner test.
   - **A client at the camera counted as out of view**: a first-person pawn's own logic would have updated about 4 times a second. Now everything within 2 m of the camera is in view.
   - **`NearMissed` counted entries that could never run** (null, or destroyed during the loop). It is now counted from the outcome after the removal pass.
   - **`analyse_ub.py` stopped at the first bad run.** It now lists failed or unanalysable runs with their reason.
@@ -357,7 +357,7 @@ The driver's own re-tuning grows roughly linearly with N, at about 0.1 µs per a
 
   The last one was reviewed as equivalent: indices are unique, and the engine's introsort never compares an element with itself.
 - **After.** UE5-TestTrust wrote one boundary test for each real gap (its commit `6b60e8b`). With them, its "after" campaign (`2026-11-21_031329_mut-updatebudget`) scored **M1 = 100.0%** (38 of 38), and the only survivor left is the equivalent tie-break.
-- **Merged after review.** Each test checks a documented rule of the policy (05 E2, E3), not an implementation accident, so all three were merged here. Their inputs are binary fractions, so each boundary is hit exactly. The patch applied cleanly to this step's test file. The numbers above are UE5-TestTrust's; they come from its repository and were not re-measured here.
+- **Merged after review.** Each test checks a documented rule of the policy (05 P1, E3), not an implementation accident, so all three were merged here. Their inputs are binary fractions, so each boundary is hit exactly. The patch applied cleanly to this step's test file. The numbers above are UE5-TestTrust's; they come from its repository and were not re-measured here.
 
 **Audit trail for S7:**
 - `code-review` (medium): 2 important findings and 3 minor ones, all fixed or documented.
@@ -384,8 +384,8 @@ The driver's own re-tuning grows roughly linearly with N, at about 0.1 µs per a
 | # | Check | Result |
 |---|---|---|
 | S8-a | **Build** (`Tools\build.bat`, Development editor) | ✅ **0 errors, 0 warnings** (MSVC 14.44.35229). The S8 build: 17 actions, 17.9 s (job `20261121_041506_74a50a`). The re-run after the test fix in S8-b: 4 actions, 10.5 s (job `20261121_050554_178998`). Every source was older than the re-run's start, so it compiled the final code, after the code-review and simplify fixes |
-| S8-b | **All automation tests** (`Tools\run_tests.bat UpdateBudget`, headless, through the job queue) | ✅ **25 / 25 passed** in the re-run, `TEST COMPLETE. EXIT CODE: 0`, 0 errors and 0 warnings in the log: lifetime (8), scheduler (11), significance (5) and `Blueprint.EventCost` (1, editor only: it needs the Blueprint compiler). Job `20261121_050554_178998`, 26.6 s. **The first run failed `EventCost`** (job `20261121_041506_74a50a`, exit 255; the other 24 passed): `Runaway loop detected (over 1,000,000 iterations)`, and the count was 499,999 of 500,000. In editor and development builds the Blueprint VM counts branch steps until the world tick resets the count, once per frame, and the test had made all 501,000 Blueprint calls in one frame. The test now resets the count before each batch, as a frame would (05 I4, 07) |
-| S8-c | **The Blueprint event's cost, measured** (03 S8's check: "its cost per call is measured and documented, not assumed"), `UpdateBudget.Blueprint.EventCost` on a Blueprint built and compiled in code (05 I4) | ✅ Median of 5 alternating rounds × 100,000 calls (the re-run): **native `RunUpdate` 4.1 ns; the same `RunUpdate` on the Blueprint subclass 1,142.7 ns; so the minimal Blueprint event costs about 1,139 ns (1.14 µs) per update.** The unguarded event call on the native class costs 35.3 ns, so without the guard every native client would pay that on every update, against 4.1 ns for the whole guarded `RunUpdate`. The first run, with one call aborted, measured 3.6 / 1,108.6 / 1,105.1 / 32.7 ns |
+| S8-b | **All automation tests** (`Tools\run_tests.bat UpdateBudget`, headless, through the job queue) | ✅ **25 / 25 passed** in the re-run, `TEST COMPLETE. EXIT CODE: 0`, 0 errors and 0 warnings in the log: lifetime (8), scheduler (11), significance (5) and `Blueprint.EventCost` (1, editor only: it needs the Blueprint compiler). Job `20261121_050554_178998`, 26.6 s. **The first run failed `EventCost`** (job `20261121_041506_74a50a`, exit 255; the other 24 passed): `Runaway loop detected (over 1,000,000 iterations)`, and the count was 499,999 of 500,000. In editor and development builds the Blueprint VM counts branch steps until the world tick resets the count, once per frame, and the test had made all 501,000 Blueprint calls in one frame. The test now resets the count before each batch, as a frame would (05 T6, 07) |
+| S8-c | **The Blueprint event's cost, measured** (03 S8's check: "its cost per call is measured and documented, not assumed"), `UpdateBudget.Blueprint.EventCost` on a Blueprint built and compiled in code (05 T6) | ✅ Median of 5 alternating rounds × 100,000 calls (the re-run): **native `RunUpdate` 4.1 ns; the same `RunUpdate` on the Blueprint subclass 1,142.7 ns; so the minimal Blueprint event costs about 1,139 ns (1.14 µs) per update.** The unguarded event call on the native class costs 35.3 ns, so without the guard every native client would pay that on every update, against 4.1 ns for the whole guarded `RunUpdate`. The first run, with one call aborted, measured 3.6 / 1,108.6 / 1,105.1 / 32.7 ns |
 
 **What S8-c means, and what it doesn't.**
 - It is an **editor** measurement (Development, headless), in a tight loop on one object with warm caches. It compares one call with another on this machine; it is not a benchmark result, and it isn't one of SC1–SC7.
@@ -397,7 +397,7 @@ The driver's own re-tuning grows roughly linearly with N, at about 0.1 µs per a
 
 **Audit trail for S8:**
 - `code-review` (medium): 1 important finding and 6 minor ones, all fixed or documented.
-  - **Important: `Blueprintable` also exposes Event Tick, which runs only natively** (`ActorComponent.cpp:1886–1888`). A Blueprint client using it would do more work in native mode than budgeted, and its Event Tick logic would silently stop under the scheduler. Now the subsystem warns once per class and world (05 I2), and the class comment says only Budgeted Update is scheduled.
+  - **Important: `Blueprintable` also exposes Event Tick, which runs only natively** (`ActorComponent.cpp:1886–1888`). A Blueprint client using it would do more work in native mode than budgeted, and its Event Tick logic would silently stop under the scheduler. Now the subsystem warns once per class and world (05 P6e), and the class comment says only Budgeted Update is scheduled.
   - The "has a Blueprint update" flag moved from `BeginPlay` to `OnRegister`, so it is right before any update can run.
   - The test's Blueprint was never released: `RF_Standalone` is now cleared on every way out. Its comment had said transient Blueprints are never collected; they are kept because they are standalone (`Kismet2.cpp:453`).
   - A check that could never fail (the native probe never running the event) was dropped.
@@ -414,6 +414,44 @@ The driver's own re-tuning grows roughly linearly with N, at about 0.1 µs per a
   - Making `HasBlueprintUpdate()` protected: it is read-only, like the other two state accessors.
   - `Blueprintable` repeated on the probe: kept on purpose, next to the `NotBlueprintable` test classes.
   - Moving the result arrays and taking the median of per-round differences: outside the timed region, or a different statistic for the same alternating rounds.
+
+
+## Phase 6 · The explanation pass (2026-11-21)
+
+Phase 6 consolidated 04–07 into one consistent pass over the code as it is now, re-checked every engine citation against the 5.8.4 source, wrote 08, and carried out one owner decision in code: **the B2/B3 baselines read their bands from UpdateBudget's settings**.
+
+| # | Check | Result |
+|---|---|---|
+| P6-a | **Build** (`Tools\build.bat`, Development editor **and** game) | ✅ **0 errors, 0 warnings** in both targets (MSVC 14.44.35229): editor 6 actions, 8.7 s; game 14 actions, 21.3 s (job `20261121_065937_cf15b9`). Every source was older than the job's start. **The first attempt failed** (job `20261121_054714_2e4638`): error C4459 in the scheduler tests, which no one had changed. UBT's unity build had batched them with the lifetime tests for the first time, and those had a file-scope `using namespace` whose `FrameSeconds` the scheduler test's own local now hid. The using-directive moved into each test (05 T4, 07) |
+| P6-b | **All automation tests** (`Tools\run_tests.bat UpdateBudget`, headless, through the job queue) | ✅ **28 / 28 passed**, `TEST COMPLETE. EXIT CODE: 0`, 0 errors and 0 warnings in the log: scheduler (11), lifetime (8), significance (6, with the new `CategoryPick`), Blueprint (1) and the new game-module suite `Baselines` (2: `DefaultsAreTheS3Bands`, `SameBandsAsUpdateBudget`). Same job, 46.8 s in all |
+| P6-c | **Every citation re-checked.** A script (kept outside the repository) extracted every `File:line` citation from 01, 01b, 02, 04–09, 11, the READMEs and the source comments, resolved each in the 5.8.4 engine tree (or this project), and printed the cited lines next to the citing text; each was read against its claim. The citations written as comma lists were checked by hand | ✅ **309 distinct citations at the start, all resolved**, plus 16 in comma lists; **341** at the end of the phase, the new ones included, all resolved. **7 corrected**, all off by one or two lines at a range's edge: `ConsoleManager.cpp:313` → `314`, `ConfigUtilities.cpp:347` → `348`, `AutomationTest.cpp:231` → `230`, `Kismet2.cpp:1079–1082` → `1080–1083`, `EngineBaseTypes.h:334` → `335`, `NiagaraWorldManager.cpp:452` → `453`, `WindowsPlatformTime.h:22` → `23`. The Phase 2 raw notes (`Phase2_Raw_Notes`, `Research`) are kept as they were written |
+| P6-d | **The docs consolidated** | ✅ **05** rewritten by file, as the code is now (sections A, P, G, T, M; the old step ids map to the new ones in its header). **06**: every small-utility table has the five columns that cover the eight points, the rule says so, and `BlueprintNativeEvent` is explained where it was rejected. **07** reorganised by module, every row with how to spot, prevent and debug it. **04** brought in line with the code. **08** written for every tool that exists, each command checked in the engine source. **12** records the owner's growth path for refusing Event Tick at compile time. References to 05 in every other document point at the new ids |
+| P6-e | **Owner decision: B2/B3 bands from the settings** (05 G4) | ✅ `FUBBaselineBands::FromCategory` reads the band edges and the near/far intervals from the category the brains use, picked by the scheduler's own rule (`FUpdateBudgetCategory::Pick`) from the never-empty list `UUpdateBudgetSettings::GetCategories`. **With the default settings the bands are exactly the S3 constants** (test `DefaultsAreTheS3Bands`), so every captured baseline batch stays valid. The captures now record the intervals they used, and `analyse_baselines.py` takes its H4 lags from them: re-run on batch `2026-11-21_015041_baseline_pinned`, it gives a file identical to the committed one |
+
+**Verified findings of Phase 6** (new engine facts, each cited where it is used):
+- **A `BlueprintNativeEvent` doesn't always go through `ProcessEvent` in 5.8.** Its generated stub calls `ProcessEvent` only when a Blueprint overrides the function, and otherwise calls the C++ implementation directly; it still looks the function up on every call (`UhtHeaderCodeGeneratorCppFile.cs:2427–2453`). An S8 review had assumed every call goes through `ProcessEvent`; the rejection still stands, for the lookup (05 P5, 06 §37).
+- **How the export macros are chosen.** UBT defines `<MODULE>_API` as `DLLEXPORT` inside the module's own DLL, `DLLIMPORT` elsewhere, and empty in a monolithic build (`UEBuildModule.cs:223`, `:750–770`); `MinimalAPI` makes UHT export the generated part of a class with it (`UhtHeaderCodeGeneratorHFile.cs:833`).
+- **The engine's own "Blueprints may not tick" switch can't serve UpdateBudget.** `meta = (ChildCannotTick)` is checked only for classes that can't tick (`KismetCompiler.cpp:5530`), and the client must tick natively for the baselines (12).
+- **Cycle stats show up in Insights only with named events on** (`Stats.h:562`, `:586`; off by default, `CoreGlobals.cpp:453`), and `dumpticks` lists each tick function by its `DiagnosticMessage` (`TickTaskManager.cpp:1703–1705`) (08).
+
+**Audit trail for Phase 6:**
+- `code-review` (medium) on the code change: 1 important finding and 6 minor ones, all fixed or documented.
+  - **Important: the H4 analysis assumed the default intervals.** With changed settings it would have judged periodicity at the wrong lags, and nothing in the capture said which bands were used. The driver now writes its Mid and Far intervals into the capture, and the analysis reads them.
+  - An inverted category could push the Mid interval outside its limits: it is now clamped between the smaller and the larger, with a test.
+  - The interval a B3 brain gets at adoption was reset away before it was counted: the per-frame count is now reset before adoption.
+  - The defaults test checked the struct, not the driver's path: it now calls the driver's `ReadBands`, this project's settings included, with exact comparisons.
+  - Brains with their own category, the out-of-view multiplier (B2/B3 are distance-only), and UB's float rounding a fraction of a millimetre past the near edge: stated in the code and in 05.
+- `simplify` (4 parallel reviews). Applied:
+  - the settings own "never empty" (`GetCategories`), so `Pick` is one line and takes the array by reference: a view conversion would have added a `check` to the per-client loop in Development builds;
+  - a brain whose category differs from the bands' is logged as an Error at adoption, so such a batch fails;
+  - only the two metadata keys the analysis reads are written;
+  - the test helper reuses `BandForSignificance`, and a redundant `operator==` is gone;
+  - `analyse_baselines.py` reads the B2/B3 runs first, so nothing is kept per run, and reads the fixed step once.
+- Skipped, with reasons:
+  - caching the squared band edges: about 1 µs per frame at N = 4,000, below the run-to-run spread, for extra state in the struct;
+  - B3's significance through `FUpdateBudgetCategory::GetSignificance`: the baselines are deliberately their own hand-written code, and the tests keep the two in step;
+  - recording the fixed step as its own manifest field for both analysis scripts: outside this change, and `run_bench.py` always uses 60 Hz today;
+  - writing every category's numbers into every capture from the subsystem: a Phase 8 option if a cross-configuration check is needed.
 
 ---
 

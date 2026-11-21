@@ -74,7 +74,7 @@
 | GC nulls array references to garbage: `KillReference(UObject*& Object) { Object = nullptr; }` | `CoreUObject/Private/UObject/GarbageCollection.cpp:2984` ✔; `FastReferenceCollector.h:704` |
 | Significance Manager: created on `OnPreWorldInitialization` and destroyed on `OnPostWorldCleanup`; the game must call `Update`; `ParallelFor` inside | `Plugins/Runtime/SignificanceManager/.../SignificanceManager.cpp:99–100, 499` ✔; `SignificanceManager.h:24–27` ✔ |
 | `OrderedBudget.h` exists in the same plugin: an existing **count-based** budget | `.../SignificanceManager/Public/OrderedBudget.h` ✔ |
-| `ALLOW_CHEAT_CVARS_IN_TEST 1`; cheat cvars are refused from ini and `-dpcvars` | `Core/Public/Misc/Build.h:436` ✔; `Core/Private/Misc/ConfigUtilities.cpp:347` ✔ |
+| `ALLOW_CHEAT_CVARS_IN_TEST 1`; cheat cvars are refused from ini and `-dpcvars` | `Core/Public/Misc/Build.h:436` ✔; `Core/Private/Misc/ConfigUtilities.cpp:348` ✔ |
 | `UDeveloperSettingsBackedByCVars` syncs cvars **only in the editor** | `DeveloperSettings` module (see the notes) |
 | 5.8 export convention: `#define UE_API <MODULE>_API` + `UCLASS(MinimalAPI)` + `UE_API` on exported members + `#undef UE_API` | e.g. `SignificanceManager.h:8` ✔ |
 | 5.8 deprecation: `FindAndPopulateSubsystemArrayInternal` → `GetSubsystemArrayCopy` | `Subsystems/SubsystemCollection.h:79` |

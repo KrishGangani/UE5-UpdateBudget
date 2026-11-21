@@ -10,3 +10,8 @@ UUpdateBudgetSettings::UUpdateBudgetSettings()
 	// [/Script/UpdateBudgetCore.UpdateBudgetSettings] section replace the whole array (Obj.cpp:3091-3095).
 	Categories.Add(FUpdateBudgetCategory());
 }
+
+TArray<FUpdateBudgetCategory> UUpdateBudgetSettings::GetCategories() const
+{
+	return Categories.IsEmpty() ? TArray<FUpdateBudgetCategory>{ FUpdateBudgetCategory() } : Categories;
+}

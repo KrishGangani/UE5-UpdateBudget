@@ -6,8 +6,10 @@ Writes Benchmarks/Summaries/<batch>_analysis.md. Reads only the batch's manifest
 
 What it computes, per (config, N), as the median across runs [min-max across runs]:
   H1  dispatch overhead: B1 (batched ticks) minus B0 GameThreadTime median, i.e. what tick batching saves.
-  H4  phase-aligned interval spikes: the autocorrelation of UpdatesRun per frame at lags 6 (0.1 s) and 30 (0.5 s)
-      at the fixed 60 Hz step, plus UpdatesRun max / median. A periodic baseline shows high values at those lags.
+  H4  phase-aligned interval spikes: the autocorrelation of UpdatesRun per frame at the Mid and Far band intervals in
+      frames (6 and 30 with the default 0.1 s and 0.5 s at the fixed 60 Hz step), plus UpdatesRun max / median. A periodic
+      baseline shows high values at those lags. The intervals come from the B2/B3 captures' metadata (Phase 6); batches
+      captured before that carry none and used the defaults.
   H6  re-tune cost: UBBaseline/GameThread/Retune median and p99 (ms) and IntervalChanges per frame (B2, B3).
 Per-run GameThreadTime and UpdatesRun statistics come from the manifest (run_bench.py computed them with the same
 csv_stats code); the CSV is read only for what the manifest doesn't hold: the per-frame series and the driver columns.
@@ -15,6 +17,7 @@ csv_stats code); the CSV is read only for what the manifest doesn't hold: the pe
 import json
 import math
 import os
+import re
 import statistics
 import sys
 
@@ -29,7 +32,18 @@ SUMMARIES = os.path.join(PROJECT, "Benchmarks", "Summaries")
 UPDATES = "UpdateBudget/UpdatesRun"
 RETUNE = "UBBaseline/GameThread/Retune"
 CHANGES = "UBBaseline/IntervalChanges"
-LAGS = (6, 30)   # frames at the fixed 60 Hz step: 0.1 s and 0.5 s, the two band intervals
+DEFAULT_INTERVALS = {"ubintervalmid": 0.1, "ubintervalfar": 0.5}   # the S3 constants, for batches without band metadata
+
+
+def fixed_fps(manifest: dict) -> int:
+    """The batch's fixed step, from the common command line (-FPS=60)."""
+    match = re.search(r"-FPS=(\d+)", manifest["environment"].get("common_args", ""))
+    return int(match.group(1)) if match else 60
+
+
+def band_lags(fps: int, metadata: dict) -> tuple[int, ...]:
+    """The Mid and Far band intervals in frames of the batch's fixed step: the lags at which a banded load repeats."""
+    return tuple(max(1, round(float(metadata.get(key, default)) * fps)) for key, default in DEFAULT_INTERVALS.items())
 
 
 def column(header: list[str], data: list[list[str]], name: str) -> list[float]:
@@ -65,7 +79,7 @@ def table(title: str, intro: str, headers: list[str]) -> list[str]:
     return lines + ["| " + " | ".join(headers) + " |", "|" + "---|" * len(headers)]
 
 
-def run_metrics(record: dict, header: list[str], data: list[list[str]]) -> dict:
+def run_metrics(record: dict, header: list[str], data: list[list[str]], lags: tuple[int, ...]) -> dict:
     stats = record["stats"]
     updates = column(header, data, UPDATES)
     retune = column(header, data, RETUNE)
@@ -76,7 +90,7 @@ def run_metrics(record: dict, header: list[str], data: list[list[str]]) -> dict:
         "gt_median": stats["GameThreadTime"]["median"],
         "upd_median": stats[UPDATES]["median"],
         "upd_max": stats[UPDATES]["max"],
-        **{f"ac{lag}": autocorrelation(updates, lag) for lag in LAGS},
+        **{f"ac{lag}": autocorrelation(updates, lag) for lag in lags},
         "retune_median": retune_stats["median"],
         "retune_p99": retune_stats["p99"],
         "changes_mean": statistics.fmean(changes) if changes else math.nan,
@@ -88,14 +102,28 @@ def main() -> int:
     with open(os.path.join(RAW, batch + "_manifest.json"), encoding="utf-8") as handle:
         manifest = json.load(handle)
 
+    fps = fixed_fps(manifest)
     by_work: dict[tuple, list[dict]] = {}
-    for record in manifest["runs"]:
+    lag_sets = set()
+    lags = None
+    # B2/B3 first: their captures carry the band intervals, which fix the H4 lags for every run of the batch.
+    for record in sorted(manifest["runs"], key=lambda r: r["config"] not in ("B2", "B3")):
         path = os.path.join(RAW, record["name"] + ".csv")
         if record.get("priming") or "stats" not in record or not os.path.exists(path):
             continue
-        header, data, _, finalised = csv_stats.load_capture(path)
-        if finalised:
-            by_work.setdefault((record["config"], record.get("work"), record["agents"]), []).append(run_metrics(record, header, data))
+        header, data, metadata, finalised = csv_stats.load_capture(path)
+        if not finalised:
+            continue
+        banded = record["config"] in ("B2", "B3")
+        if banded:
+            lag_sets.add(band_lags(fps, metadata))
+        if lags is None:
+            lags = band_lags(fps, metadata if banded else {})
+        by_work.setdefault((record["config"], record.get("work"), record["agents"]), []).append(run_metrics(record, header, data, lags))
+    if len(lag_sets) > 1:
+        print("the B2/B3 runs of this batch used different bands:", sorted(lag_sets))
+        return 1
+    lags = lags or band_lags(fps, {})
 
     works = {w for _, w, _ in by_work}
     if len(works) > 1:
@@ -119,15 +147,15 @@ def main() -> int:
         diffs = [a["gt_median"] - b1_by_run[a["run"]]["gt_median"] for a in b0 if a["run"] in b1_by_run]
         lines.append(f"| {n} | {col(b0, 'gt_median')} | {col(b1, 'gt_median')} | {cell(diffs)} |")
 
-    lag_text = " and ".join(f"lag {lag} ({lag / 60:.1f} s)" for lag in LAGS)
+    lag_text = " and ".join(f"lag {lag} ({lag / fps:.1f} s)" for lag in lags)
     lines += table("## H4 · Periodic update spikes (UpdatesRun per frame)",
                    f"Autocorrelation of the per-frame update count at {lag_text}, and max / median. "
                    "A value near 1 means the load repeats with that period, a sign of phase-aligned tick intervals.",
-                   ["Config", "N", "UpdatesRun median", "max", "max / median"] + [f"autocorr lag {lag}" for lag in LAGS])
+                   ["Config", "N", "UpdatesRun median", "max", "max / median"] + [f"autocorr lag {lag}" for lag in lags])
     for (c, n), group in rows:
         ratio = [g["upd_max"] / g["upd_median"] for g in group if g["upd_median"]]
         lines.append(f"| {c} | {n} | {col(group, 'upd_median', 0)} | {col(group, 'upd_max', 0)} | {cell(ratio, 2)} | "
-                     + " | ".join(col(group, f"ac{lag}", 2) for lag in LAGS) + " |")
+                     + " | ".join(col(group, f"ac{lag}", 2) for lag in lags) + " |")
 
     lines += table("## H6 · Re-tune cost of the smarter native baselines",
                    "`UBBaseline/GameThread/Retune` is the driver's own per-frame work (B2: distance loop; B3: Significance Manager "

@@ -125,10 +125,10 @@ private:
 	/** Step 1: every client's significance and deadline, from the dense States and each owner's location. */
 	void UpdateDeadlines();
 
-	/** The category a client uses; an index out of range means category 0 (never empty). */
+	/** The category a client uses (FUpdateBudgetCategory::Pick). */
 	const FUpdateBudgetCategory& GetCategory(int32 Index) const
 	{
-		return Categories.IsValidIndex(Index) ? Categories[Index] : Categories[0];
+		return FUpdateBudgetCategory::Pick(Categories, Index);
 	}
 
 	/** The budget in effect: ub.BudgetMs when it is >= 0, otherwise the settings value. */

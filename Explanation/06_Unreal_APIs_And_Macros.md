@@ -2,7 +2,9 @@
 
 **Rule:**
 - Only APIs this project **actually uses** appear here, each in the same step it enters the code.
-- Each entry follows the 8-point format: what it is · why it exists · how it works · when to use it · when not to · common mistakes · a small example · how we use it.
+- Each major API follows the 8-point format: what it is · why it exists · how it works · when to use it · when not to · common mistakes · a small example · how we use it.
+- Small utilities are grouped in tables with five columns that cover the same eight points: *what it is and how it works* (why it exists is part of what it is) · *when to use it, and when not* · *common mistake* · *in this project*, whose code is the example.
+- Since Phase 6 the citations have all been re-checked against the 5.8.4 source, and references to 05 use its by-file section ids (P = plugin, G = game module, T = tests, M = tools).
 - Verified against UE **5.8.4** source; file references are relative to `Engine/`.
 
 | # | API | First used in |
@@ -264,21 +266,21 @@
 
 ## 13. `FRandomStream`, `FParse::Value` / `FCommandLine`, `FCrc::TypeCrc32`
 
-| API | What / why | In this project |
-|---|---|---|
-| `FRandomStream(Seed)`, `FRandRange(min, max)` | A seeded, self-contained random sequence. Reproducible, and not shared with other code (unlike `FMath::Rand`) | Agent placement and phase |
-| `FParse::Value(Stream, TEXT("Key="), Out)` + `FCommandLine::Get()` | Reads `-Key=value` from the command line. Overloads exist for `int32`, `float`, `double`, `FString`… (`Misc/Parse.h`). It leaves `Out` untouched if the key is absent | `-UBAgents=`, `-UBSeed=`, `-UBWork=` |
-| `FCrc::TypeCrc32(Value, Crc)` | The CRC of one value, chained through the seed. **Not for hash tables**: Epic recommends xxhash there (`Crc.h:34`). Fine as a determinism fingerprint | Start-position hash |
+| API (5.8.4) | What it is, and how it works | When to use it, and when not | Common mistake | In this project |
+|---|---|---|---|---|
+| `FRandomStream(Seed)`, `FRandRange(min, max)` | A seeded, self-contained random sequence. Reproducible, and not shared with other code (unlike `FMath::Rand`) | Whenever a run must be reproducible: one stream per purpose, seeded from configuration. Not for values that must differ between runs, or for security | Drawing from `FMath::Rand`, whose state is shared with all other code: any unrelated draw would change the placement | Agent placement and phase |
+| `FParse::Value(Stream, TEXT("Key="), Out)` + `FCommandLine::Get()` | Reads `-Key=value` from the command line. Overloads exist for `int32`, `float`, `double`, `FString`… (`Misc/Parse.h`). It leaves `Out` untouched if the key is absent | Reading a few named values at start-up, for tools and benchmarks. Not for anything a player sets: that belongs in config or a settings class | A typo in a key is silently ignored, because the value simply stays at its default. Log the values actually read (the director does) | `-UBAgents=`, `-UBSeed=`, `-UBWork=` |
+| `FCrc::TypeCrc32(Value, Crc)` | The CRC of one value, chained through the seed. **Not for hash tables**: Epic recommends xxhash there (`Crc.h:34`). Fine as a determinism fingerprint | A cheap fingerprint that proves two runs produced the same data. Not for hash tables, and not for security | Hashing `FVector` (doubles) when the data only needs float precision: rounding noise below that precision changes the hash. The director hashes `FVector3f` | Start-position hash |
 
 ## 14. Small utilities
 
-| API | What it is | Why it is used here |
-|---|---|---|
-| `check(expr)` | Assert. It stops the program in debug/Development and is compiled out in Shipping | Null `Client` is a programming error |
-| `ensure(expr)` | Logs a callstack once, returns the result and continues | A missing world in `RunUpdate` is worth reporting, not crashing a benchmark |
-| `DEFINE_LOG_CATEGORY_STATIC(Name, Log, All)` + `UE_LOG` | A log category visible only in one `.cpp` | The harness's own `LogUBBench` filter |
-| `RETURN_QUICK_DECLARE_CYCLE_STAT(Name, Group)` | Declares and returns a stat ID inline | Required `GetStatId()` of a tickable object |
-| `UE_INLINE_GENERATED_CPP_BY_NAME(File)` | Includes UHT's `.gen.cpp` into this file | Fewer translation units, faster builds |
+| API (5.8.4) | What it is, and how it works | When to use it, and when not | Common mistake | In this project |
+|---|---|---|---|---|
+| `check(expr)` | Assert. It stops the program in debug/Development and is compiled out in Shipping | A condition that can only be false through a programming error, where continuing would corrupt state. Not for conditions that can happen at run time | Putting work with side effects inside it: `check` compiles out in Shipping (`DO_CHECK` is `USE_CHECKS_IN_SHIPPING`, 0 by default, `Misc/Build.h:206`, `:302`), and the work goes with it | Null `Client` is a programming error |
+| `ensure(expr)` | Logs a callstack once, returns the result and continues | A bug worth a report that the program can survive. Not for expected conditions: each failure logs a call stack (the first time per call site) | Expecting it to stop execution: it returns the condition, so the code must still handle the failure (`if (!ensure(World)) return;`) | A missing world in `RunUpdate` is worth reporting, not crashing a benchmark |
+| `DEFINE_LOG_CATEGORY_STATIC(Name, Log, All)` + `UE_LOG` | A log category visible only in one `.cpp` | A category one `.cpp` uses. Shared between files: `DECLARE_LOG_CATEGORY_EXTERN` in a header and `DEFINE_LOG_CATEGORY` in one `.cpp` | Logging inside a per-update loop: each line is formatted and written, which costs more than the work it describes | The harness's own `LogUBBench` filter |
+| `RETURN_QUICK_DECLARE_CYCLE_STAT(Name, Group)` | Declares and returns a stat ID inline | The `GetStatId()` of a tickable object or a task. For timing your own code, use `DECLARE_CYCLE_STAT` and `SCOPE_CYCLE_COUNTER` (§32) | Returning an empty `TStatId()`: the tick then has no name in `stat` and Insights | Required `GetStatId()` of a tickable object |
+| `UE_INLINE_GENERATED_CPP_BY_NAME(File)` | Includes UHT's `.gen.cpp` into this file | In the `.cpp` of a header that has UHT types, after its other includes. Never in a header | Naming another header's generated file: the macro must name this file's own header | Fewer translation units, faster builds |
 
 ## 15. `CSV_EVENT` / `CSV_METADATA` and event-driven capture
 
@@ -301,12 +303,12 @@
 
 ## 16. Camera, files and exit: `ACameraActor` + `SetViewTarget`, `FFileHelper`, `FPaths`, `RequestExit`
 
-| API | What / why | Common mistake | In this project |
-|---|---|---|---|
-| `World.SpawnActor<ACameraActor>()` + `APlayerController::SetViewTarget(Camera)` | A plain engine camera actor. The player controller renders from its view target | Setting the view target once, then losing it when the controller possesses its pawn | Re-applied each frame if it changed. The camera flies a fixed analytic path |
-| `FFileHelper::SaveStringToFile(String, *Path)` | Writes a text file and returns success | Ignoring the return value | The run report. A failure is logged as an Error |
-| `FPaths::ProjectSavedDir()` | The project's `Saved/` folder, which in a packaged build sits beside the executable's content | Hard-coding absolute paths | `Saved/UBRuns/<tag>.csv` |
-| `FPlatformMisc::RequestExit(false, CallSite)` | Asks the engine to shut down normally at the end of the frame. `true` would force an immediate exit | Exiting on the same frame a CSV capture stops, before the file is written | Called 3 frames after BenchEnd |
+| API (5.8.4) | What it is, and how it works | When to use it, and when not | Common mistake | In this project |
+|---|---|---|---|---|
+| `World.SpawnActor<ACameraActor>()` + `APlayerController::SetViewTarget(Camera)` | A plain engine camera actor. The player controller renders from its view target | A fixed or scripted camera with no pawn, such as a benchmark flight. For a gameplay camera, use the pawn's camera component and the camera manager | Setting the view target once, then losing it when the controller possesses its pawn | Re-applied each frame if it changed. The camera flies a fixed analytic path |
+| `FFileHelper::SaveStringToFile(String, *Path)` | Writes a text file and returns success | Small text outputs, written outside the measured frames. Not inside a measured frame or a hot path: it is a disk write | Ignoring the return value | The run report. A failure is logged as an Error |
+| `FPaths::ProjectSavedDir()` | The project's `Saved/` folder, which in a packaged build sits beside the executable's content | Run outputs, logs and caches that belong to this installation. Not for content or settings that ship with the game | Hard-coding absolute paths | `Saved/UBRuns/<tag>.csv` |
+| `FPlatformMisc::RequestExit(false, CallSite)` | Asks the engine to shut down normally at the end of the frame. `true` would force an immediate exit | Ending a scripted run normally, so shutdown and the log complete. When the exit code must report a result, a forced `RequestExitWithStatus(true, Code)` | Exiting on the same frame a CSV capture stops, before the file is written | Called 3 frames after BenchEnd |
 
 ---
 
@@ -332,12 +334,10 @@
 
 ## 18. `SetComponentTickInterval` vs `SetComponentTickIntervalAndCooldown`
 
-| Setter | What it does (`ActorComponent.cpp:1783–1791`, 5.8.4) | Consequence |
-|---|---|---|
-| `SetComponentTickInterval(f)` | Only writes `PrimaryComponentTick.TickInterval` | The new interval applies **after the current cooldown ends**. A far agent (0.5 s) that becomes near keeps waiting up to 0.5 s |
-| `SetComponentTickIntervalAndCooldown(f)` | `UpdateTickIntervalAndCoolDown`: updates the reschedule entry, or removes the function from the cooling-down list and reschedules it (`TickTaskManager.cpp:2463–2477`) | Applies **at once**, at the cost of a list walk (H6). Once a tick function has had an interval, it stays on the cooldown path even at 0 |
-
-**In this project:** both baselines use the `…AndCooldown` variant, and only when the band changes. That's what a team wanting responsive near agents would write.
+| API (5.8.4) | What it is, and how it works | When to use it, and when not | Common mistake | In this project |
+|---|---|---|---|---|
+| `SetComponentTickInterval(float)` (`ActorComponent.cpp:1783–1791`) | Only writes `PrimaryComponentTick.TickInterval`. The new interval applies **after the current cooldown ends** | A rate set once, for example at spawn, or one that can wait out the old interval | Using it for something that must react at once: a far agent (0.5 s) that becomes near keeps waiting up to 0.5 s | Not used |
+| `SetComponentTickIntervalAndCooldown(float)` | `UpdateTickIntervalAndCoolDown`: updates the reschedule entry, or removes the function from the cooling-down list and reschedules it (`TickTaskManager.cpp:2463–2477`). Applies **at once**, at the cost of a list walk (H6). Once a tick function has had an interval, it stays on the cooldown path even at 0 | A rate that changes during play and must apply at once, such as distance banding. Only when the value changes | Calling it every frame for every agent: each call walks the cooling-down list | B2 and B3 call it only when an agent's band changes, as a team wanting responsive near agents would (05 G4) |
 
 ## 19. `FSubsystemCollectionBase::InitializeDependency<T>()`
 
@@ -366,15 +366,15 @@
 
 ## 21. Small utilities added in the S3 clean-up
 
-| API | What it is (5.8.4) | Why it is used here | Common mistake |
-|---|---|---|---|
-| `FMath::GetRangePct(Min, Max, Value)` | `(Value − Min) / (Max − Min)`, returning 0 or 1 for an empty range (`Core/Public/Math/UnrealMathUtility.h:1054`) | The Mid-band fall-off of B3's significance, instead of a hand-written fraction | Forgetting that it does **not** clamp: values outside the range give results outside [0, 1] |
-| `TNumericLimits<float>::Min()` | The smallest **positive** normal float, `FLT_MIN` (`Core/Public/Math/NumericLimits.h`). `Lowest()` is the most negative value | The lower clamp that keeps a Mid-band significance strictly above 0 | Reading `Min()` as "most negative", as in `std::numeric_limits<int>::min()`. For floats it is the smallest positive value |
-| `APlayerCameraManager::GetCameraCacheView()` → `const FMinimalViewInfo&` | The camera's cached view of this frame: `Location`, `Rotation`, FOV and more. `GetCameraLocation()` / `GetCameraRotation()` just return its fields (`Engine/Private/PlayerCameraManager.cpp:774–782`) | One call builds the B2/B3 viewpoint | Expecting it to be valid before the camera manager has updated once (the first frame) |
-| `TArray::RemoveSingleSwap(Item, EAllowShrinking::No)` | Finds the **first** match, moves the last element into its slot, returns the number removed (0 or 1) | B2 drops a brain that ended play; each brain is in the list once | Using it when order matters (swap changes it), or `RemoveSwap` when you know there is one match (that scans the whole array) |
-| `MakeArrayView(Pointer, Count)` | A non-owning view over existing memory | Passes B3's single viewpoint to `USignificanceManager::Update(TArrayView<const FTransform>)` without building an array | Keeping the view after the memory it points to is gone (it owns nothing) |
-| `ensureMsgf(expr, TEXT("…"), …)` | Like `ensure`, with a formatted message; logs a call stack the first time it fails and returns the result | Reports a broken "append-only" contract on the agent list instead of silently skipping agents | Putting side effects inside it, or using it for conditions that are expected at run time (use `if` and a log for those) |
-| `FString::ToUpperInline()` | Upper-cases the string in place | The baseline name in the log and CSV metadata reads `B2`/`B3` whatever the command line said | Calling it only for comparisons: `FString ==` is already case-insensitive |
+| API (5.8.4) | What it is, and how it works | When to use it, and when not | Common mistake | In this project |
+|---|---|---|---|---|
+| `FMath::GetRangePct(Min, Max, Value)` | `(Value − Min) / (Max − Min)`, returning 0 or 1 for an empty range (`Core/Public/Math/UnrealMathUtility.h:1054`) | Mapping a value into [0, 1] between two edges, before a lerp or a fall-off. Clamp it yourself when the value can leave the range | Forgetting that it does **not** clamp: values outside the range give results outside [0, 1] | The Mid-band fall-off of B3's significance, instead of a hand-written fraction |
+| `TNumericLimits<float>::Min()` | The smallest **positive** normal float, `FLT_MIN` (`Core/Public/Math/NumericLimits.h`). `Lowest()` is the most negative value | A strictly positive lower bound, such as "above 0 but as small as possible". For the most negative float, `Lowest()` | Reading `Min()` as "most negative", as in `std::numeric_limits<int>::min()`. For floats it is the smallest positive value | The lower clamp that keeps a Mid-band significance strictly above 0 |
+| `APlayerCameraManager::GetCameraCacheView()` → `const FMinimalViewInfo&` | The camera's cached view of this frame: `Location`, `Rotation`, FOV and more. `GetCameraLocation()` / `GetCameraRotation()` just return its fields (`Engine/Private/PlayerCameraManager.cpp:774–782`) | Reading the camera from gameplay code: the view of the last camera update. Not when this frame's final camera is needed, because cameras update after the tick groups (`LevelTick.cpp:1828–1847`) | Expecting it to be valid before the camera manager has updated once (the first frame) | One call builds the B2/B3 viewpoint |
+| `TArray::RemoveSingleSwap(Item, EAllowShrinking::No)` | Finds the **first** match, moves the last element into its slot, returns the number removed (0 or 1) | Removing one known element from an unordered array: O(1) after the search. Not when order matters | Using it when order matters (swap changes it), or `RemoveSwap` when you know there is one match (that scans the whole array) | B2 drops a brain that ended play; each brain is in the list once |
+| `MakeArrayView(Pointer, Count)` | A non-owning view over existing memory | Passing existing memory (one value, a C array, part of an array) to a function that takes a `TArrayView`. Not to store: it owns nothing | Keeping the view after the memory it points to is gone (it owns nothing) | Passes B3's single viewpoint to `USignificanceManager::Update(TArrayView<const FTransform>)` without building an array |
+| `ensureMsgf(expr, TEXT("…"), …)` | Like `ensure`, with a formatted message; logs a call stack the first time it fails and returns the result | Like `ensure`, when the report needs values. Not for expected conditions | Putting side effects inside it, or using it for conditions that are expected at run time (use `if` and a log for those) | Reports a broken "append-only" contract on the agent list instead of silently skipping agents |
+| `FString::ToUpperInline()` | Upper-cases the string in place | Normalising text for output. Not needed for comparing: `FString ==` is already case-insensitive | Calling it only for comparisons: `FString ==` is already case-insensitive | The baseline name in the log and CSV metadata reads `B2`/`B3` whatever the command line said |
 
 ---
 
@@ -420,18 +420,18 @@
    - Assuming tests run in Shipping (they're compiled out).
    - Putting `Quit` in a separate `-ExecCmds` entry: it must be inside the same `Automation` command so it waits for the tests.
 7. **Example.** `IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMyTest, "Game.Math.Add", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter) bool FMyTest::RunTest(const FString&) { TestEqual(TEXT("1+1"), 1 + 1, 2); return true; }`
-8. **In this project.** Eight tests under `UpdateBudget.Scheduler.*` (05 E3), run headless by `Tools\run_tests.bat` through the job queue.
+8. **In this project.** Eight tests under `UpdateBudget.Scheduler.*` (05 T3), run headless by `Tools\run_tests.bat` through the job queue.
 
 ## 24. Sorting and numeric safety in the scheduler
 
-| API | What it is (5.8.4) | Why it is used here | Common mistake |
-|---|---|---|---|
-| `TArray::Sort(Predicate)` | An in-place introsort; **not stable** | One sort by deadline per frame (v1) | Expecting equal elements to keep their order. The scheduler breaks ties by index so the run order is deterministic |
-| `FMath::IsFinite(double)` | True unless the value is NaN or ±infinity (`Core/Public/Microsoft/MicrosoftPlatformMath.h:18`, `_finite`) | A NaN measured cost would poison the moving average | Thinking `FMath::Max(0.0, NaN)` removes a NaN: it returns NaN, because every comparison with NaN is false |
-| `TArray::Init(Value, Count)` | Resizes to `Count` copies of `Value` | One cost prediction per category | Confusing it with `Reserve`, which allocates without adding elements |
-| `FMath::Lerp(A, B, Alpha)` | `A + Alpha * (B - A)` (`Core/Public/Math/UnrealMathUtility.h:1123–1126`) | The moving-average step, by its name | Reaching for `FMath::WeightedMovingAverage` (same file, line 2494): it computes `Cur·W + Prev·(1 − W)` and re-clamps the weight on every call, so its result can differ in the last bit |
-| `TArrayView::GetData()` | A raw pointer to the first element | The sort comparator reads deadlines without the per-access range check | Indexing a raw pointer with an index that isn't guaranteed in range: the check is gone, so out-of-range is undefined behaviour. Here every index is 0..N−1 by construction |
-| `TArray::SetNumUninitialized(N, EAllowShrinking::No)` | Sets the size without constructing or zeroing elements, and keeps the memory when shrinking | The sort buffer is fully rewritten every frame, so zeroing would be wasted work | Reading elements before writing them: they hold garbage |
+| API (5.8.4) | What it is, and how it works | When to use it, and when not | Common mistake | In this project |
+|---|---|---|---|---|
+| `TArray::Sort(Predicate)` | An in-place introsort; **not stable** | Sorting in place when equal elements may change places, or when ties are broken explicitly. `StableSort` (`Containers/Array.h:3704`) when their order must be kept | Expecting equal elements to keep their order. The scheduler breaks ties by index so the run order is deterministic | One sort by deadline per frame (v1) |
+| `FMath::IsFinite(double)` | True unless the value is NaN or ±infinity (`Core/Public/Microsoft/MicrosoftPlatformMath.h:18`, `_finite`) | Checking a measured or external number before it enters state that lives across frames | Thinking `FMath::Max(0.0, NaN)` removes a NaN: it returns NaN, because every comparison with NaN is false | A NaN measured cost would poison the moving average |
+| `TArray::Init(Value, Count)` | Resizes to `Count` copies of `Value` | Filling a new array with N copies of a value. To allocate without adding elements, `Reserve` | Confusing it with `Reserve`, which allocates without adding elements | One cost prediction per category |
+| `FMath::Lerp(A, B, Alpha)` | `A + Alpha * (B - A)` (`Core/Public/Math/UnrealMathUtility.h:1123–1126`) | Any linear blend, including the step of an exponential moving average | Reaching for `FMath::WeightedMovingAverage` (same file, line 2494): it computes `Cur·W + Prev·(1 − W)` and re-clamps the weight on every call, so its result can differ in the last bit | The moving-average step, by its name |
+| `TArrayView::GetData()` | A raw pointer to the first element | A hot loop whose indices are proven in range. Otherwise index the array or the view, and keep the checks | Indexing a raw pointer with an index that isn't guaranteed in range: the check is gone, so out-of-range is undefined behaviour. Here every index is 0..N−1 by construction | The sort comparator reads deadlines without the per-access range check |
+| `TArray::SetNumUninitialized(N, EAllowShrinking::No)` | Sets the size without constructing or zeroing elements, and keeps the memory when shrinking | A buffer whose every element is written before it is read, rebuilt often. Not for types that need construction or zeroing | Reading elements before writing them: they hold garbage | The sort buffer is fully rewritten every frame, so zeroing would be wasted work |
 
 ---
 
@@ -446,10 +446,10 @@
    - `RegisterTickFunction(ULevel*)` (`:341`) adds it to that level's lists; `UnRegisterTickFunction()` (`:349`) removes it; the destructor also unregisters (`TickTaskManager.cpp:2396–2399`).
    - Registration ignores `bCanEverTick` and `bStartWithTickEnabled` (`TickTaskManager.cpp:2406–2427`); the default state is **enabled** (`:2374`), so it ticks from the next frame.
    - `SetTickFunctionEnable(bool)` (`EngineBaseTypes.h:364`) moves a registered function between the enabled and disabled sets (`TickTaskManager.cpp:2439–2461`). Each frame the manager walks only the enabled set (`:1479–1485`), so a disabled function costs nothing per frame. On an unregistered function it only stores the state.
-   - A function registered **during** a tick frame runs in the next tick group of the same frame (`EngineBaseTypes.h:334–341`).
+   - A function registered **during** a tick frame runs in the next tick group of the same frame (`EngineBaseTypes.h:335–341`).
    - The manager runs each function at most once per value of `GFrameCounter` (`TickTaskManager.cpp:1479–1485`, `2622–2631`).
    - The struct must never be copied: the manager keeps raw pointers to it. `FTickFunction` deletes its copy assignment (`EngineBaseTypes.h:550–551`), and a USTRUCT subclass declares `TStructOpsTypeTraits<…>::WithCopy = false` (`FActorTickFunction`: `:599–608`).
-4. **When to use it.** A world-level system that must run in a specific tick group, once per frame, on the game thread: schedulers, batch managers (Mass and Niagara do this: `MassProcessingPhaseManager.cpp:485–486`, `NiagaraWorldManager.cpp:452–463`).
+4. **When to use it.** A world-level system that must run in a specific tick group, once per frame, on the game thread: schedulers, batch managers (Mass and Niagara do this: `MassProcessingPhaseManager.cpp:485–486`, `NiagaraWorldManager.cpp:453–463`).
 5. **When not to.** Per-actor work (use the actor's or component's own tick). Work that may run anywhere after physics (a tickable subsystem is simpler).
 6. **Common mistakes.**
    - Registering in a subsystem's `Initialize`: it starts ticking at once, even in editor worlds (`01b #2`).
@@ -469,7 +469,7 @@
    // OnWorldBeginPlay:  Tick.Owner = this; Tick.SetTickFunctionEnable(true); Tick.RegisterTickFunction(World.PersistentLevel);
    // Deinitialize:      Tick.UnRegisterTickFunction();
    ```
-8. **In this project.** `FUpdateBudgetTickFunction` (05 F1) runs `UUpdateBudgetSubsystem::RunFrame` in `TG_PrePhysics`. It is registered in `OnWorldBeginPlay` in every mode and enabled only in budgeted mode, so in the native baselines it costs nothing.
+8. **In this project.** `FUpdateBudgetTickFunction` (05 P4) runs `UUpdateBudgetSubsystem::RunFrame` in `TG_PrePhysics`. It is registered in `OnWorldBeginPlay` in every mode and enabled only in budgeted mode, so in the native baselines it costs nothing.
 
 ## 26. Console variables: `TAutoConsoleVariable`, and setting one before start-up
 
@@ -489,13 +489,13 @@
    - Marking a benchmark switch `ECVF_Cheat`, so the ini route silently refuses it.
    - Reading `GetValueOnGameThread()` from a worker thread (it `ensure`s).
 7. **Example.** `static TAutoConsoleVariable<int32> CVarMyMode(TEXT("my.Mode"), 0, TEXT("0 off, 1 on"), ECVF_Default);` then `const bool bOn = CVarMyMode.GetValueOnGameThread() != 0;` and, to start a run with it on: `MyGame.exe -ini:Engine:[ConsoleVariables]:my.Mode=1`.
-8. **In this project.** `ub.Enabled` (05 F4) selects native or budgeted mode, read once per world in `OnWorldBeginPlay`. The UB benchmark configuration (S6) sets it with `-ini:`; B1 keeps using `-ExecCmds` for `tick.AllowBatchedTicks`, which the tick manager reads every frame, so the one-frame delay doesn't matter there.
+8. **In this project.** `ub.Enabled` (05 P6) selects native or budgeted mode, read once per world in `OnWorldBeginPlay`. The UB benchmark configuration (S6) sets it with `-ini:`; B1 keeps using `-ExecCmds` for `tick.AllowBatchedTicks`, which the tick manager reads every frame, so the one-frame delay doesn't matter there.
 
 ## 27. `FPlatformTime::Cycles64` and friends
 
 1. **What it is.** The platform's high-resolution timer. On Windows `Cycles64()` returns the raw `QueryPerformanceCounter` value (`Core/Public/Windows/WindowsPlatformTime.h:39–44`). `GetSecondsPerCycle64()` is its tick length, `ToMilliseconds64(Cycles)` converts a difference (`Core/Public/GenericPlatform/GenericPlatformTime.h:195–205`).
 2. **Why it exists.** Measuring short intervals cheaply and portably, without floating-point drift.
-3. **How it works.** Take two readings and subtract; the difference is an integer number of timer ticks. `FPlatformTime::Seconds()` reads the same counter but converts at once and adds a fixed offset of 16,777,216 s (`WindowsPlatformTime.h:22–29`, `:46–49`), which costs low-order precision in a difference.
+3. **How it works.** Take two readings and subtract; the difference is an integer number of timer ticks. `FPlatformTime::Seconds()` reads the same counter but converts at once and adds a fixed offset of 16,777,216 s (`WindowsPlatformTime.h:23–29`, `:46–49`), which costs low-order precision in a difference.
 4. **When to use it.** Timing one piece of code at run time, where the result feeds a decision (as here) or a custom statistic.
 5. **When not to.** Profiling: use `TRACE_CPUPROFILER_EVENT_SCOPE`, cycle stats or CSV timing scopes, which the tools understand. Gameplay time: use `UWorld::GetTimeSeconds()` (paused and dilated correctly).
 6. **Common mistakes.**
@@ -503,7 +503,7 @@
    - Converting each reading to seconds before subtracting.
    - Timing something so short that the two readings cost more than the work.
 7. **Example.** `const uint64 Start = FPlatformTime::Cycles64(); DoWork(); const double Ms = FPlatformTime::ToMilliseconds64(FPlatformTime::Cycles64() - Start);`
-8. **In this project.** `RunClient` times each scheduled update (05 F4); the cost feeds the policy's moving average and the budget. The subsystem logs the timer's tick length once per world (09, S5).
+8. **In this project.** `RunClient` times each scheduled update (05 P6); the cost feeds the policy's moving average and the budget. The subsystem logs the timer's tick length once per world (09, S5).
 
 ## 28. Engine test helpers: `FTestWorldWrapper` and `FTestConsoleVariable`
 
@@ -531,30 +531,30 @@
    Wrapper.TickTestWorld(1.f / 60.f);
    Wrapper.ForwardErrorMessages(this);
    ```
-8. **In this project.** `FTestBudgetWorld` in the lifetime tests (05 F6) wraps both, with the cvar declared first so it is restored last.
+8. **In this project.** `FTestBudgetWorld` in the lifetime tests (05 T4) wraps both, with the cvar declared first so it is restored last.
 
 ## 29. The component's tick and registration controls
 
-| API (5.8.4) | What it does | Why it matters here | Common mistake |
-|---|---|---|---|
-| `UActorComponent::SetComponentTickEnabled(bool)` (`ActorComponent.cpp:1755–1761`) | Enables or disables `PrimaryComponentTick` (if it can ever tick and isn't a template) | Budgeted mode turns the native tick off, so the native modes' dispatch cost isn't paid in UB | Expecting it to survive re-registration: see the next row |
-| `FTickFunction::bStartWithTickEnabled` | Read whenever a component's tick function is registered: `SetTickFunctionEnable(bStartWithTickEnabled \|\| IsTickFunctionEnabled())` (`ActorComponent.cpp:1739–1750`, line 1747) | Budgeted mode clears it, or a re-registered component would tick natively again | Treating it as "initial state only": it is re-applied on every registration |
-| `OnRegister()` / `OnUnregister()` (protected virtuals, `ActorComponent.h:830`, `835`) | Called when the component joins or leaves its world: on spawn, on re-registration, and (unregister) during streaming removal | The client's registry membership follows these, so it stops exactly when the native tick does | Doing play-time work in `OnRegister` without checking `HasBegunPlay()`: it also runs before `BeginPlay`, and in editor worlds |
-| `Activate(bool bReset)` (`ActorComponent.cpp:2815–2824`) / `Deactivate()` (`:2826–2835`) | Turn the component's tick on or off and set its active flag | `Activate()` would bring back a scheduler-driven client's native tick; the `TickComponent` guard handles it. `Deactivate()` isn't mirrored by the scheduler (02 §12 item 8) | Assuming activation is only a flag: it changes ticking |
-| `ReregisterComponent()` (`ActorComponent.cpp:2554–2566`) | Unregisters and registers again (through `FComponentReregisterContext`), without `EndPlay`/`BeginPlay` | Exercised by the `NoDoubleUpdate` test | Expecting `BeginPlay` to run again |
-| `AActor::UnregisterAllComponents(bool bForReregister = false)` (`Actor.h:3250`) | Unregisters every component of the actor | What streaming removal calls first (`Level.cpp:2196`); the `LevelUnloadOrder` test calls it the same way | Assuming the actor has ended play afterwards: it hasn't |
-| `AActor::RouteEndPlay(EEndPlayReason)` (`Actor.h:3381`, `Actor.cpp:3221–3257`) | Calls `EndPlay` once (if begun play), then uninitialises components | The second step of streaming removal, called with `RemovedFromWorld` in the test | Calling `EndPlay` directly, which skips the begun-play check and component uninitialisation |
+| API (5.8.4) | What it is, and how it works | When to use it, and when not | Common mistake | In this project |
+|---|---|---|---|---|
+| `UActorComponent::SetComponentTickEnabled(bool)` (`ActorComponent.cpp:1755–1761`) | Enables or disables `PrimaryComponentTick` (if it can ever tick and isn't a template) | Gameplay pausing and resuming a component's tick. To change how often it ticks, the interval setters (§18) | Expecting it to survive re-registration: see the next row | Budgeted mode turns the native tick off, so the native modes' dispatch cost isn't paid in UB |
+| `FTickFunction::bStartWithTickEnabled` | Read whenever a component's tick function is registered: `SetTickFunctionEnable(bStartWithTickEnabled \|\| IsTickFunctionEnabled())` (`ActorComponent.cpp:1739–1750`, line 1747) | Set in the constructor for a component that should start paused. Registration reads it again every time (`ActorComponent.cpp:1747`) | Treating it as "initial state only": it is re-applied on every registration | Budgeted mode clears it, or a re-registered component would tick natively again |
+| `OnRegister()` / `OnUnregister()` (protected virtuals, `ActorComponent.h:830`, `835`) | Called when the component joins or leaves its world: on spawn, on re-registration, and (unregister) during streaming removal | Work tied to being in a world (registries, render state), which can happen more than once in a component's life. One-time gameplay setup belongs in `BeginPlay` | Doing play-time work in `OnRegister` without checking `HasBegunPlay()`: it also runs before `BeginPlay`, and in editor worlds | The client's registry membership follows these, so it stops exactly when the native tick does |
+| `Activate(bool bReset)` (`ActorComponent.cpp:2815–2824`) / `Deactivate()` (`:2826–2835`) | Turn the component's tick on or off and set its active flag | Gameplay switching a component's behaviour on and off. They also switch the tick, through `SetComponentTickEnabled` | Assuming activation is only a flag: it changes ticking | `Activate()` would bring back a scheduler-driven client's native tick; the `TickComponent` guard handles it. `Deactivate()` isn't mirrored by the scheduler (02 §12 item 8) |
+| `ReregisterComponent()` (`ActorComponent.cpp:2554–2566`) | Unregisters and registers again (through `FComponentReregisterContext`), without `EndPlay`/`BeginPlay` | After changing properties that take effect only at registration. Not every frame: it unregisters and registers the component | Expecting `BeginPlay` to run again | Exercised by the `NoDoubleUpdate` test |
+| `AActor::UnregisterAllComponents(bool bForReregister = false)` (`Actor.h:3250`) | Unregisters every component of the actor | The engine's streaming and teardown, and tests that reproduce them. Rarely needed in gameplay | Assuming the actor has ended play afterwards: it hasn't | What streaming removal calls first (`Level.cpp:2196`); the `LevelUnloadOrder` test calls it the same way |
+| `AActor::RouteEndPlay(EEndPlayReason)` (`Actor.h:3381`, `Actor.cpp:3221–3257`) | Calls `EndPlay` once (if begun play), then uninitialises components | The engine's way to end an actor's play, used by tests that reproduce streaming removal. Gameplay ends play with `Destroy` | Calling `EndPlay` directly, which skips the begun-play check and component uninitialisation | The second step of streaming removal, called with `RemovedFromWorld` in the test |
 
 ## 30. Small utilities in S5
 
-| API (5.8.4) | What it is | Why it is used here | Common mistake |
-|---|---|---|---|
-| `IsValid(const UObject*)` (`CoreUObject/Public/UObject/Object.h:1886`) | True if the pointer is non-null and the object isn't flagged as garbage or unreachable | The guard before each scheduled update, and the test for entries to remove after the loop | Testing only `!= nullptr`: a destroyed object stays non-null until GC runs (`01b #8`) |
-| `TArray::AddDefaulted_GetRef()` (`Array.h:3067`) | Appends a default-constructed element and returns a reference to it | Adds a client's hot state and sets its `LastUpdateTime` in one step | Keeping the reference after another `Add`: the array may reallocate |
-| `TArray::Reset(NewSize = 0)` (`Array.h:2469`) | Empties the array but keeps its allocation | `PendingAdds` is reused every frame without reallocating | Using `Empty()` in a per-frame path, which frees and later reallocates |
-| `TWeakObjectPtr<T>` | A pointer that doesn't keep its object alive and reads as null once the object is garbage or gone | The teardown test proves the subsystem was collected, and reads only components still alive | Using it to keep an object alive (it doesn't), or a raw pointer where an object may die between frames |
-| `FCoreUObjectDelegates::GetPostGarbageCollect()` + `AddUObject(this, &Class::Method)` → `FDelegateHandle`; `Remove(Handle)` (`CoreUObject/Public/UObject/UObjectGlobals.h:3490`) | A multicast delegate broadcast after every garbage collection (`GarbageCollection.cpp:5943`). `AddUObject` binds a member function and won't call it once the object is gone | The subsystem removes the entries GC nulled, in every mode (05 F4). `UWorld` and `UNetDriver` bind the same way (`World.cpp:1765`, `NetDriver.cpp:839`) | Forgetting to `Remove` the handle when the owner shuts down, or changing containers that another loop is reading from inside the callback (here: deferred if the scheduler is running) |
-| `UCLASS(NotBlueprintable, HideDropdown)` | No Blueprint subclasses; hidden from class pickers | The test classes ship in the module but never appear in the editor's lists | Leaving test classes visible, so designers can pick them |
+| API (5.8.4) | What it is, and how it works | When to use it, and when not | Common mistake | In this project |
+|---|---|---|---|---|
+| `IsValid(const UObject*)` (`CoreUObject/Public/UObject/Object.h:1886`) | True if the pointer is non-null and the object isn't flagged as garbage or unreachable | Before using a UObject pointer that GC or gameplay may have invalidated, in any code that can't prove the object alive | Testing only `!= nullptr`: a destroyed object stays non-null until GC runs (`01b #8`) | The guard before each scheduled update, and the test for entries to remove after the loop |
+| `TArray::AddDefaulted_GetRef()` (`Array.h:3067`) | Appends a default-constructed element and returns a reference to it | Appending one element and filling it in place. `Emplace` when a constructor takes the values | Keeping the reference after another `Add`: the array may reallocate | Adds a client's hot state and sets its `LastUpdateTime` in one step |
+| `TArray::Reset(NewSize = 0)` (`Array.h:2469`) | Empties the array but keeps its allocation | Emptying an array that will be refilled soon: it keeps the memory. `Empty()` gives it back | Using `Empty()` in a per-frame path, which frees and later reallocates | `PendingAdds` is reused every frame without reallocating |
+| `TWeakObjectPtr<T>` | A pointer that doesn't keep its object alive and reads as null once the object is garbage or gone | Watching a UObject you don't own, such as a test checking that something was collected. Not for ownership: it doesn't keep the object alive | Using it to keep an object alive (it doesn't), or a raw pointer where an object may die between frames | The teardown test proves the subsystem was collected, and reads only components still alive |
+| `FCoreUObjectDelegates::GetPostGarbageCollect()` + `AddUObject(this, &Class::Method)` → `FDelegateHandle`; `Remove(Handle)` (`CoreUObject/Public/UObject/UObjectGlobals.h:3490`) | A multicast delegate broadcast after every garbage collection (`GarbageCollection.cpp:5943`). `AddUObject` binds a member function and won't call it once the object is gone | Dropping your own references to objects the collector has just collected. Not as a per-frame hook | Forgetting to `Remove` the handle when the owner shuts down, or changing containers that another loop is reading from inside the callback (here: deferred if the scheduler is running) | The subsystem removes the entries GC nulled, in every mode (05 P6). `UWorld` and `UNetDriver` bind the same way (`World.cpp:1765`, `NetDriver.cpp:839`) |
+| `UCLASS(NotBlueprintable, HideDropdown)` | No Blueprint subclasses; hidden from class pickers | Classes that exist only for tests or internal plumbing | Leaving test classes visible, so designers can pick them | The test classes ship in the module but never appear in the editor's lists |
 
 ---
 
@@ -578,7 +578,7 @@
    - Expecting `+Array=` lines in the ini to add to the C++ default: any entry replaces the default array.
    - Reading the settings in a hot loop through `GetDefault` every time instead of once.
 7. **Example.** `UCLASS(config = Game, defaultconfig, meta = (DisplayName = "My System")) class UMySettings : public UDeveloperSettings { GENERATED_BODY() public: UPROPERTY(config, EditAnywhere, Category = "Budget") float BudgetMs = 2.f; };` and `const float Budget = GetDefault<UMySettings>()->BudgetMs;`
-8. **In this project.** `UUpdateBudgetSettings` (05 G2): the budget and the significance categories, read once per world in `OnWorldBeginPlay`.
+8. **In this project.** `UUpdateBudgetSettings` (05 P3): the budget and the significance categories, read once per world in `OnWorldBeginPlay`.
 
 ## 32. Stats and timing scopes: `DECLARE_STATS_GROUP`, `DECLARE_CYCLE_STAT`, `SCOPE_CYCLE_COUNTER`, `CSV_SCOPED_TIMING_STAT`
 
@@ -593,7 +593,7 @@
    - Looking for `UpdateBudget/RunFrame` in the CSV: the thread name is part of the column.
    - Declaring the same stat in two files (a link error).
 7. **Example.** `DECLARE_CYCLE_STAT(TEXT("Step"), STAT_MyStep, STATGROUP_Game); void Step() { SCOPE_CYCLE_COUNTER(STAT_MyStep); CSV_SCOPED_TIMING_STAT(MyCategory, Step); … }`
-8. **In this project.** `RunFrame` and `Deadlines` in both systems (05 G4). `RunFrame` minus `UpdateMs` is the scheduler's own overhead.
+8. **In this project.** `RunFrame` and `Deadlines` in both systems (05 P6). `RunFrame` minus `UpdateMs` is the scheduler's own overhead.
 
 ## 33. The camera's view: `APlayerCameraManager::GetCameraCacheView`, `FMinimalViewInfo`
 
@@ -607,17 +607,17 @@
    - Testing visibility with a cone of half the **horizontal** FOV: on a wide screen the corners fall outside it (found by the S6 code review).
    - Normalising every direction for an angle test: compare squared dot products instead (04 §22).
 7. **Example.** `if (const APlayerCameraManager* Camera = PC->PlayerCameraManager.Get()) { const FMinimalViewInfo& View = Camera->GetCameraCacheView(); const FVector Forward = View.Rotation.Vector(); … }`
-8. **In this project.** `UUpdateBudgetSubsystem::UpdateDeadlines` builds an `FUpdateBudgetView` from it once per frame (05 G4), the same view the brains (B4) and the B2/B3 drivers (D1) use.
+8. **In this project.** `UUpdateBudgetSubsystem::UpdateDeadlines` builds an `FUpdateBudgetView` from it once per frame (05 P6), the same view the brains (B4) and the B2/B3 drivers (D1) use.
 
 ## 34. Small utilities in S6
 
-| API (5.8.4) | What it is | Why it is used here | Common mistake |
-|---|---|---|---|
-| `UEngine::AddOnScreenDebugMessage(uint64 Key, float TimeToDisplay, FColor, const FString&, …)` (`Engine/Classes/Engine/Engine.h:2196–2197`) | Draws a line of text on screen. A key other than −1 replaces the previous message with the same key | `ub.Debug 1`: one line per world, keyed by the subsystem's `GetUniqueID()`, shown for one frame (time 0) | Key −1 every frame: the messages stack up |
-| `UE_CLOG(Condition, Category, Verbosity, Format, …)` | `UE_LOG` that runs only when the condition is true | The begin-play warning for an inverted category | Putting work with side effects in the condition |
-| `FString::SanitizeFloat(double)` | A float as text without trailing zeros | The `UBMaxStaleness` CSV metadata value | Using it where a fixed number of decimals matters |
-| `FMath::Lerp`, `FMath::GetRangePct`, `FMath::DegreesToRadians`, `FMath::Tan` (`Core/Public/Math/UnrealMathUtility.h`) | Linear interpolation, the position of a value within a range, degree conversion, tangent | The significance falloff, the max staleness and the view cone (05 G1) | `GetRangePct` with Min = Max divides by zero; the category code never calls it then |
-| `GetDefault<T>()` | The class default object of `T`; for a config class it holds the loaded ini values | Reading `UUpdateBudgetSettings` once per world | Modifying it at run time (it is shared by everything that reads it) |
+| API (5.8.4) | What it is, and how it works | When to use it, and when not | Common mistake | In this project |
+|---|---|---|---|---|
+| `UEngine::AddOnScreenDebugMessage(uint64 Key, float TimeToDisplay, FColor, const FString&, …)` (`Engine/Classes/Engine/Engine.h:2196–2197`) | Draws a line of text on screen. A key other than −1 replaces the previous message with the same key | Debug text in development builds; a keyed message updates in place. Not for player-facing UI | Key −1 every frame: the messages stack up | `ub.Debug 1`: one line per world, keyed by the subsystem's `GetUniqueID()`, shown for one frame (time 0) |
+| `UE_CLOG(Condition, Category, Verbosity, Format, …)` | `UE_LOG` that runs only when the condition is true | A log line that should appear only under a condition, in one statement: the condition is tested first | Putting work with side effects in the condition | The begin-play warning for an inverted category |
+| `FString::SanitizeFloat(double)` | A float as text without trailing zeros | Writing a float as text without trailing zeros (CSV metadata, logs). For a fixed number of digits, `Printf("%.3f")` | Using it where a fixed number of decimals matters | The `UBMaxStaleness` CSV metadata value |
+| `FMath::Lerp`, `FMath::GetRangePct`, `FMath::DegreesToRadians`, `FMath::Tan` (`Core/Public/Math/UnrealMathUtility.h`) | Linear interpolation, the position of a value within a range, degree conversion, tangent | The standard maths helpers; prefer them to hand-written formulas, whose edge cases are less tested | `GetRangePct` with Min = Max divides by zero; the category code never calls it then | The significance falloff, the max staleness and the view cone (05 P2) |
+| `GetDefault<T>()` | The class default object of `T`; for a config class it holds the loaded ini values | Reading a class's defaults or its loaded config, such as settings. Not for per-instance state, and not to write at run time | Modifying it at run time (it is shared by everything that reads it) | Reading `UUpdateBudgetSettings` once per world |
 
 ---
 
@@ -626,7 +626,7 @@
 ## 35. Reacting to a cvar change, and acting between frames
 
 1. **What they are.**
-   - `IConsoleVariable::OnChangedDelegate()` returns the variable's `FConsoleVariableMulticastDelegate` (`Core/Public/HAL/IConsoleManager.h:242`, `:694`), broadcast whenever the value is set (`Core/Private/HAL/ConsoleManager.cpp:313–337`).
+   - `IConsoleVariable::OnChangedDelegate()` returns the variable's `FConsoleVariableMulticastDelegate` (`Core/Public/HAL/IConsoleManager.h:242`, `:694`), broadcast whenever the value is set (`Core/Private/HAL/ConsoleManager.cpp:314–337`).
    - `FWorldDelegates::OnWorldPostActorTick` (`Engine/Classes/Engine/World.h:4526–4527`) is broadcast once per world tick, after the tick manager has finished the frame's tick groups (`LevelTick.cpp:1886` then `:1906`).
 2. **Why they exist.** Systems react to settings without polling, and code that must not run inside a tick group gets a safe point at the end of the frame.
 3. **How they work.**
@@ -641,16 +641,16 @@
    - Forgetting the `World` parameter: the delegate is global and fires for every world, PIE clients included.
    - Never removing the handle.
 7. **Example.** `Handle = CVarMine->OnChangedDelegate().AddUObject(this, &UMySubsystem::OnChanged);` then in `OnChanged`: `PostTick = FWorldDelegates::OnWorldPostActorTick.AddUObject(this, &UMySubsystem::ApplyAtFrameEnd);` and in `ApplyAtFrameEnd(UWorld* World, ELevelTick, float)`: `if (World != GetWorld()) return; FWorldDelegates::OnWorldPostActorTick.Remove(PostTick); …`
-8. **In this project.** `ub.Enabled` switches a running world between native and budgeted mode at the end of the frame in which it changed (05 H1); the post-tick handler is bound only while a switch is pending.
+8. **In this project.** `ub.Enabled` switches a running world between native and budgeted mode at the end of the frame in which it changed (05 P6d); the post-tick handler is bound only while a switch is pending.
 
 ## 36. Native multicast delegates, debug drawing and the tick override
 
-| API (5.8.4) | What it is | Why it is used here | Common mistake |
-|---|---|---|---|
-| `DECLARE_MULTICAST_DELEGATE_OneParam(FOnFrameStats, const FUpdateBudgetFrameReport&)` + `Broadcast(Report)` | A C++-only event with any number of listeners. No reflection, so no Blueprint binding and no `UFUNCTION` needed | `OnFrameStats`, the design's per-frame stats event for HUDs and tools (05 H2) | Expecting Blueprint to bind it: that needs a dynamic delegate (`DECLARE_DYNAMIC_MULTICAST_DELEGATE`, 06 §20), which costs more per broadcast |
-| `DrawDebugPoint(const UWorld*, FVector const&, float Size, FColor const&, bool bPersistentLines = false, float LifeTime = -1.f, uint8 DepthPriority = 0)` (`Engine/Public/DrawDebugHelpers.h:24`) | A screen-facing square of the given size; lifetime −1 draws it for one frame | `ub.Debug 2`: one point per client, tinted by recency (05 H3) | Calling it in Shipping and expecting output: without `ENABLE_DRAW_DEBUG` (`:14`) the call is an empty inline function (`:186`) |
-| `FColor::MakeRedToGreenColorFromScalar(float)` (`Core/Public/Math/Color.h:640`, `Core/Private/Math/Color.cpp:569–577`) | 0 = red, 0.5 = yellow, 1 = green, with the input clamped | The recency colour scale: one call per point (it replaced an HSV interpolation in the S7 simplify audit) | Passing staleness directly: 1 means *green* here, so the code passes 1 − staleness |
-| `UActorComponent::SetComponentTickEnabled` overridden (virtual, `Engine/Classes/Components/ActorComponent.h:1002`) | The one function `Activate`, `Deactivate`, replication and the async variant call (`ActorComponent.cpp:2819`, `2830`, `3087`, `1771`) | The client records gameplay's tick choice in every mode and applies it only when native (05 H3) | Calling `SetComponentTickEnabled` from the component's own mode logic: that would record the mode as gameplay's choice. The component calls `Super::` there |
+| API (5.8.4) | What it is, and how it works | When to use it, and when not | Common mistake | In this project |
+|---|---|---|---|---|
+| `DECLARE_MULTICAST_DELEGATE_OneParam(FOnFrameStats, const FUpdateBudgetFrameReport&)` + `Broadcast(Report)` | A C++-only event with any number of listeners. No reflection, so no Blueprint binding and no `UFUNCTION` needed | C++ listeners, any number or none, with no Blueprint binding. When Blueprint must bind, a dynamic delegate (§20) | Expecting Blueprint to bind it: that needs a dynamic delegate (`DECLARE_DYNAMIC_MULTICAST_DELEGATE`, 06 §20), which costs more per broadcast | `OnFrameStats`, the design's per-frame stats event for HUDs and tools (05 P6h) |
+| `DrawDebugPoint(const UWorld*, FVector const&, float Size, FColor const&, bool bPersistentLines = false, float LifeTime = -1.f, uint8 DepthPriority = 0)` (`Engine/Public/DrawDebugHelpers.h:24`) | A screen-facing square of the given size; lifetime −1 draws it for one frame | Visual debugging in development builds. Never in a benchmark run, and it is gone in Shipping | Calling it in Shipping and expecting output: without `ENABLE_DRAW_DEBUG` (`:14`) the call is an empty inline function (`:186`) | `ub.Debug 2`: one point per client, tinted by recency (05 P5) |
+| `FColor::MakeRedToGreenColorFromScalar(float)` (`Core/Public/Math/Color.h:640`, `Core/Private/Math/Color.cpp:569–577`) | 0 = red, 0.5 = yellow, 1 = green, with the input clamped | A traffic-light colour from a value between 0 and 1 | Passing staleness directly: 1 means *green* here, so the code passes 1 − staleness | The recency colour scale: one call per point (it replaced an HSV interpolation in the S7 simplify audit) |
+| `UActorComponent::SetComponentTickEnabled` overridden (virtual, `Engine/Classes/Components/ActorComponent.h:1002`) | The one function `Activate`, `Deactivate`, replication and the async variant call (`ActorComponent.cpp:2819`, `2830`, `3087`, `1771`) | When a component keeps its own policy for the tick while still honouring every gameplay call | Calling `SetComponentTickEnabled` from the component's own mode logic: that would record the mode as gameplay's choice. The component calls `Super::` there | The client records gameplay's tick choice in every mode and applies it only when native (05 P5) |
 
 ---
 
@@ -660,7 +660,7 @@
 
 1. **What it is.**
    - A `UFUNCTION(BlueprintImplementableEvent)` is declared in C++ and implemented only in Blueprint. UHT generates its C++ body: it finds the function and calls `ProcessEvent` on it.
-   - `UCLASS(Blueprintable)` sets the `IsBlueprintBase` metadata (`Programs/Shared/EpicGames.UHT/Specifiers/UhtDefaultSpecifiers.cs:122–127`), which the editor needs somewhere in a class's chain before it offers a Blueprint subclass (`Editor/UnrealEd/Private/Kismet2/Kismet2.cpp:1079–1082`).
+   - `UCLASS(Blueprintable)` sets the `IsBlueprintBase` metadata (`Programs/Shared/EpicGames.UHT/Specifiers/UhtDefaultSpecifiers.cs:122–127`), which the editor needs somewhere in a class's chain before it offers a Blueprint subclass (`Editor/UnrealEd/Private/Kismet2/Kismet2.cpp:1080–1083`).
    - `UClass::IsFunctionImplementedInScript(FName)` says whether a Blueprint in the class chain implements a function. The base version always answers false (`CoreUObject/Private/UObject/Class.cpp:6525–6529`); the Blueprint class's version checks whether the function found belongs to a Blueprint class (`Engine/Private/BlueprintGeneratedClass.cpp:1402–1406`).
 2. **Why it exists.** C++ defines *when* something happens, and designers define *what* happens, without new C++.
 3. **How it works.**
@@ -668,25 +668,26 @@
    - With a Blueprint implementation, the Blueprint VM runs the compiled graph.
    - Guarding the call with a cached `IsFunctionImplementedInScript` result removes even the empty call for classes that don't implement it. The engine guards `ReceiveTick` with a class-flag test (`ActorComponent.cpp:1886–1888`).
    - `GET_FUNCTION_NAME_CHECKED(Class, Function)` (`Core/Public/Misc/AssertionMacros.h:520`) turns a function name into an `FName`, checked at compile time.
+   - The related `BlueprintNativeEvent` has a C++ default (`Foo_Implementation`) that a Blueprint may override. In 5.8 its generated stub calls `ProcessEvent` only when a Blueprint overrides it, and otherwise calls the C++ implementation directly, but it still looks the function up on every call (`Programs/Shared/EpicGames.UHT/Exporters/CodeGen/UhtHeaderCodeGeneratorCppFile.cs:2427–2453`). UpdateBudget uses neither for its C++ update: a plain virtual plus a cached `bool` is cheaper (05 P5).
 4. **When to use it.** Hooks for prototyping, and for logic that is cheap or rare.
 5. **When not to.** Hot per-agent logic at scale: every call goes through the VM. Measure it first (09, S8), and move hot logic to C++ (`OnBudgetedUpdate`).
 6. **Common mistakes.**
    - Calling the event unguarded for thousands of native objects: each call costs a `ProcessEvent` that does nothing.
    - Forgetting `Blueprintable` on the class, so the editor offers no Blueprint subclass.
    - Hard-coding the function name as a string: a rename then breaks silently.
-   - Making a class `Blueprintable` and forgetting that it now exposes every inherited event too. Here, Event Tick runs only in native mode, so the subsystem warns about it (05 I2).
+   - Making a class `Blueprintable` and forgetting that it now exposes every inherited event too. Here, Event Tick runs only in native mode, so the subsystem warns about it (05 P6e).
 7. **Example.** `UFUNCTION(BlueprintImplementableEvent) void ReceiveStep(float Dt);` … in `OnRegister`: `bHasBP = GetClass()->IsFunctionImplementedInScript(GET_FUNCTION_NAME_CHECKED(UMyComponent, ReceiveStep));` … `if (bHasBP) ReceiveStep(Dt);`
-8. **In this project.** `ReceiveBudgetedUpdate` (05 I1), with the guard cached in `OnRegister`, and the Event Tick warning in `Register` (05 I2). The measured cost is in 09, S8.
+8. **In this project.** `ReceiveBudgetedUpdate` (05 P5), with the guard cached in `OnRegister`, and the Event Tick warning in `Register` (05 P6e). The measured cost is in 09, S8.
 
 ## 38. Building a Blueprint in code (editor only, for the S8 test)
 
-| API (5.8.4) | What it does | Why the test uses it | Common mistake |
-|---|---|---|---|
-| `FKismetEditorUtilities::CreateBlueprint(ParentClass, Outer, Name, BPTYPE_Normal)` (`Editor/UnrealEd/Public/Kismet2/KismetEditorUtilities.h:110`) | Creates a Blueprint object with an event graph. It is `RF_Standalone` (`Kismet2.cpp:453`) | A real Blueprint subclass of the probe, without a hand-made asset | Reusing a fixed name in the transient package: the editor keeps standalone objects (`CoreUObject/Public/UObject/GarbageCollection.h:28`), so a second run collides. The engine's test makes names unique with `MakeUniqueObjectName` (`UObjectGlobals.h:1062`; `ToolsetLibraryTest.cpp:33–43`) |
-| `UObjectBaseUtility::ClearFlags(RF_Standalone)` (`UObjectBaseUtility.h:79`) inside `ON_SCOPE_EXIT { … };` (`Core/Public/Misc/ScopeExit.h:73`) | Lets the next garbage collection take the Blueprint and its class; the scope guard runs on every way out | Cleanup after the test, as the engine's test does (`ToolsetLibraryTest.cpp:1698–1704`) | Marking the generated class as garbage instead: the next collection could reclaim a class a live object points at (the engine test's own warning, `ToolsetLibraryTest.cpp:1698–1699`) |
-| `FKismetEditorUtilities::AddDefaultEventNode(BP, Graph, EventName, EventClass, InOutPosY)` (`KismetEditorUtilities.h:542`, `Kismet2.cpp:671–745`) | Adds an override node for an event, as a disabled "ghost" node (`:741`) | The Budgeted Update event node | Expecting it to always add a node: it returns null when the event is hidden from the class or not allowed by the editor settings (`:678–684`) |
-| `FGraphNodeCreator<UK2Node_CallFunction>` → `CreateNode(false)`, `SetFromFunction(UFunction*)` (`K2Node_CallFunction.h:209`), `Finalize()` (`Engine/Classes/EdGraph/EdGraph.h:283–307`) | Places a node the way the editor does: guid, post-placement, pins | The call to `CountCall` | Setting the function after `Finalize`: `Finalize` builds the pins from what the node knows then (`:303–306`) |
-| `UEdGraphSchema_K2::TryCreateConnection(PinA, PinB)` (`EdGraphSchema_K2.h:569`) and `UEdGraphSchema_K2::PN_Then` (`:423`) | Connects two pins if the schema allows it, and returns whether it did; the link is made by `MakeLinkTo` (`EdGraphSchema.cpp:474–494`), which turns connected ghost nodes into real ones (`EdGraphPin.cpp:514`, `538–539`) | Event "then" → call "exec" | Leaving the event unconnected: it stays a ghost node, and the event isn't implemented |
-| `FKismetEditorUtilities::CompileBlueprint(BP)` (`KismetEditorUtilities.h:169`) and `UBlueprint::Status` (`BS_Error`, `Engine/Classes/Engine/Blueprint.h:48`) | Compiles the graph into the generated class | `Blueprint->GeneratedClass` is the class the test instantiates | Using `GeneratedClass` without checking the status |
-| `GInitRunaway()` (`CoreUObject/Public/UObject/Stack.h:460`, `Private/UObject/ScriptCore.cpp:126–129`) and `UEngine::MaximumLoopIterationCount` (`Engine/Classes/Engine/Engine.h:1641–1643`; 1,000,000 in `BaseEngine.ini:317`, applied at `UnrealEngine.cpp:2523`) | The VM's runaway guard: it counts Blueprint branch steps since the last `GInitRunaway`, and past the limit aborts the call and reports an infinite loop (`ScriptCore.cpp:1268–1294`). The world tick calls `GInitRunaway` once per frame (`LevelTick.cpp:1563`). Only with `DO_BLUEPRINT_GUARD` (`Core/Public/Misc/CoreMisc.h:338–344`) | The S8 test runs 100,000 events per batch and resets the count before each batch, as a frame would | Running more Blueprint calls in one frame than the guard allows, in a loop or a test: one call is skipped, with an error in the log. A minimal event counts about 3 steps (09 S8) |
-| `TSet::Add(Key, &bAlreadyInSet)` (`Core/Public/Containers/SparseSet.h.inl:415`) with `FTopLevelAssetPath` keys (`UClass::GetClassPathName`, `Class.h:4358`; hash at `TopLevelAssetPath.h:162–165`) | Adds a key and reports in the same lookup whether it was already there | The Event Tick warning, once per class and world (05 I2) | A `Contains` followed by an `Add`: two lookups for one question |
+| API (5.8.4) | What it is, and how it works | When to use it, and when not | Common mistake | In this project |
+|---|---|---|---|---|
+| `FKismetEditorUtilities::CreateBlueprint(ParentClass, Outer, Name, BPTYPE_Normal)` (`Editor/UnrealEd/Public/Kismet2/KismetEditorUtilities.h:110`) | Creates a Blueprint object with an event graph. It is `RF_Standalone` (`Kismet2.cpp:453`) | Tests and tools that need a real Blueprint without an asset. Editor only: not in runtime code | Reusing a fixed name in the transient package: the editor keeps standalone objects (`CoreUObject/Public/UObject/GarbageCollection.h:28`), so a second run collides. The engine's test makes names unique with `MakeUniqueObjectName` (`UObjectGlobals.h:1062`; `ToolsetLibraryTest.cpp:33–43`) | A real Blueprint subclass of the probe, without a hand-made asset |
+| `UObjectBaseUtility::ClearFlags(RF_Standalone)` (`UObjectBaseUtility.h:79`) inside `ON_SCOPE_EXIT { … };` (`Core/Public/Misc/ScopeExit.h:73`) | Lets the next garbage collection take the Blueprint and its class; the scope guard runs on every way out | Cleaning up transient editor objects a test or tool made | Marking the generated class as garbage instead: the next collection could reclaim a class a live object points at (the engine test's own warning, `ToolsetLibraryTest.cpp:1698–1699`) | Cleanup after the test, as the engine's test does (`ToolsetLibraryTest.cpp:1698–1704`) |
+| `FKismetEditorUtilities::AddDefaultEventNode(BP, Graph, EventName, EventClass, InOutPosY)` (`KismetEditorUtilities.h:542`, `Kismet2.cpp:671–745`) | Adds an override node for an event, as a disabled "ghost" node (`:741`) | Adding an override event node in code | Expecting it to always add a node: it returns null when the event is hidden from the class or not allowed by the editor settings (`:678–684`) | The Budgeted Update event node |
+| `FGraphNodeCreator<UK2Node_CallFunction>` → `CreateNode(false)`, `SetFromFunction(UFunction*)` (`K2Node_CallFunction.h:209`), `Finalize()` (`Engine/Classes/EdGraph/EdGraph.h:283–307`) | Places a node the way the editor does: guid, post-placement, pins | Placing any graph node from code | Setting the function after `Finalize`: `Finalize` builds the pins from what the node knows then (`:303–306`) | The call to `CountCall` |
+| `UEdGraphSchema_K2::TryCreateConnection(PinA, PinB)` (`EdGraphSchema_K2.h:569`) and `UEdGraphSchema_K2::PN_Then` (`:423`) | Connects two pins if the schema allows it, and returns whether it did; the link is made by `MakeLinkTo` (`EdGraphSchema.cpp:474–494`), which turns connected ghost nodes into real ones (`EdGraphPin.cpp:514`, `538–539`) | Connecting pins from code, with the schema's type checks | Leaving the event unconnected: it stays a ghost node, and the event isn't implemented | Event "then" → call "exec" |
+| `FKismetEditorUtilities::CompileBlueprint(BP)` (`KismetEditorUtilities.h:169`) and `UBlueprint::Status` (`BS_Error`, `Engine/Classes/Engine/Blueprint.h:48`) | Compiles the graph into the generated class | After building or changing a Blueprint in code, before using its generated class | Using `GeneratedClass` without checking the status | `Blueprint->GeneratedClass` is the class the test instantiates |
+| `GInitRunaway()` (`CoreUObject/Public/UObject/Stack.h:460`, `Private/UObject/ScriptCore.cpp:126–129`) and `UEngine::MaximumLoopIterationCount` (`Engine/Classes/Engine/Engine.h:1641–1643`; 1,000,000 in `BaseEngine.ini:317`, applied at `UnrealEngine.cpp:2523`) | The VM's runaway guard: it counts Blueprint branch steps since the last `GInitRunaway`, and past the limit aborts the call and reports an infinite loop (`ScriptCore.cpp:1268–1294`). The world tick calls `GInitRunaway` once per frame (`LevelTick.cpp:1563`). Only with `DO_BLUEPRINT_GUARD` (`Core/Public/Misc/CoreMisc.h:338–344`) | Code that makes many Blueprint calls outside a world tick (tests, tools). Not in gameplay: the world tick resets the count every frame | Running more Blueprint calls in one frame than the guard allows, in a loop or a test: one call is skipped, with an error in the log. A minimal event counts about 3 steps (09 S8) | The S8 test runs 100,000 events per batch and resets the count before each batch, as a frame would |
+| `TSet::Add(Key, &bAlreadyInSet)` (`Core/Public/Containers/SparseSet.h.inl:415`) with `FTopLevelAssetPath` keys (`UClass::GetClassPathName`, `Class.h:4358`; hash at `TopLevelAssetPath.h:162–165`) | Adds a key and reports in the same lookup whether it was already there | "Add it, and tell me whether it was new" in one lookup | A `Contains` followed by an `Add`: two lookups for one question | The Event Tick warning, once per class and world (05 P6e) |

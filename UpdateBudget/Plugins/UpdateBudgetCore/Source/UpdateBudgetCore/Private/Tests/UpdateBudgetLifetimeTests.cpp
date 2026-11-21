@@ -90,11 +90,11 @@ namespace UpdateBudgetLifetimeTests
 	};
 }
 
-using namespace UpdateBudgetLifetimeTests;
-
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUpdateBudgetLifetimeModeTest, "UpdateBudget.Lifetime.ModeAtBeginPlay", UpdateBudgetTests::Flags)
 bool FUpdateBudgetLifetimeModeTest::RunTest(const FString& Parameters)
 {
+	using namespace UpdateBudgetLifetimeTests;   // in each test, not at file scope: unity builds join .cpp files
+
 	// Both modes: every client is registered and updated exactly once per frame; only the caller differs.
 	for (const bool bBudgeted : { false, true })
 	{
@@ -129,6 +129,8 @@ bool FUpdateBudgetLifetimeModeTest::RunTest(const FString& Parameters)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUpdateBudgetLifetimeDestroyTest, "UpdateBudget.Lifetime.DestroyDuringUpdate", UpdateBudgetTests::Flags)
 bool FUpdateBudgetLifetimeDestroyTest::RunTest(const FString& Parameters)
 {
+	using namespace UpdateBudgetLifetimeTests;   // in each test, not at file scope: unity builds join .cpp files
+
 	FUpdateLog Log;
 	FTestBudgetWorld Test(true);
 	if (!Test.IsReady(*this))
@@ -168,6 +170,8 @@ bool FUpdateBudgetLifetimeDestroyTest::RunTest(const FString& Parameters)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUpdateBudgetLifetimeSpawnTest, "UpdateBudget.Lifetime.SpawnDuringUpdate", UpdateBudgetTests::Flags)
 bool FUpdateBudgetLifetimeSpawnTest::RunTest(const FString& Parameters)
 {
+	using namespace UpdateBudgetLifetimeTests;   // in each test, not at file scope: unity builds join .cpp files
+
 	FUpdateLog Log;
 	FTestBudgetWorld Test(true);
 	if (!Test.IsReady(*this))
@@ -211,6 +215,8 @@ bool FUpdateBudgetLifetimeSpawnTest::RunTest(const FString& Parameters)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUpdateBudgetLifetimeUnloadTest, "UpdateBudget.Lifetime.LevelUnloadOrder", UpdateBudgetTests::Flags)
 bool FUpdateBudgetLifetimeUnloadTest::RunTest(const FString& Parameters)
 {
+	using namespace UpdateBudgetLifetimeTests;   // in each test, not at file scope: unity builds join .cpp files
+
 	FUpdateLog Log;
 	FTestBudgetWorld Test(true);
 	if (!Test.IsReady(*this))
@@ -253,6 +259,8 @@ bool FUpdateBudgetLifetimeUnloadTest::RunTest(const FString& Parameters)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUpdateBudgetLifetimeNoDoubleUpdateTest, "UpdateBudget.Lifetime.NoDoubleUpdate", UpdateBudgetTests::Flags)
 bool FUpdateBudgetLifetimeNoDoubleUpdateTest::RunTest(const FString& Parameters)
 {
+	using namespace UpdateBudgetLifetimeTests;   // in each test, not at file scope: unity builds join .cpp files
+
 	FUpdateLog Log;
 	FTestBudgetWorld Test(true);
 	if (!Test.IsReady(*this))
@@ -287,6 +295,8 @@ bool FUpdateBudgetLifetimeNoDoubleUpdateTest::RunTest(const FString& Parameters)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUpdateBudgetLifetimeTeardownTest, "UpdateBudget.Lifetime.WorldTeardown", UpdateBudgetTests::Flags)
 bool FUpdateBudgetLifetimeTeardownTest::RunTest(const FString& Parameters)
 {
+	using namespace UpdateBudgetLifetimeTests;   // in each test, not at file scope: unity builds join .cpp files
+
 	FUpdateLog Log;
 	FTestBudgetWorld Test(true);
 	if (!Test.IsReady(*this))
@@ -338,6 +348,8 @@ bool FUpdateBudgetLifetimeTeardownTest::RunTest(const FString& Parameters)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUpdateBudgetLifetimeLiveSwitchTest, "UpdateBudget.Lifetime.LiveSwitch", UpdateBudgetTests::Flags)
 bool FUpdateBudgetLifetimeLiveSwitchTest::RunTest(const FString& Parameters)
 {
+	using namespace UpdateBudgetLifetimeTests;   // in each test, not at file scope: unity builds join .cpp files
+
 	FUpdateLog Log;
 	FTestBudgetWorld Test(true);
 	if (!Test.IsReady(*this))
@@ -396,6 +408,8 @@ bool FUpdateBudgetLifetimeLiveSwitchTest::RunTest(const FString& Parameters)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUpdateBudgetLifetimeSwitchKeepsTickStateTest, "UpdateBudget.Lifetime.LiveSwitchKeepsTickState", UpdateBudgetTests::Flags)
 bool FUpdateBudgetLifetimeSwitchKeepsTickStateTest::RunTest(const FString& Parameters)
 {
+	using namespace UpdateBudgetLifetimeTests;   // in each test, not at file scope: unity builds join .cpp files
+
 	FUpdateLog Log;
 	FTestBudgetWorld Test(false);
 	if (!Test.IsReady(*this))

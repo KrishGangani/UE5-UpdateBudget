@@ -58,11 +58,7 @@ void UUpdateBudgetSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 
 	// Settings are read once per world, so a run can't change halfway; the cvar can still override the budget.
 	const UUpdateBudgetSettings* Settings = GetDefault<UUpdateBudgetSettings>();
-	Categories = Settings->Categories;
-	if (Categories.IsEmpty())
-	{
-		Categories.Add(FUpdateBudgetCategory());   // an ini that empties the array still leaves one valid category
-	}
+	Categories = Settings->GetCategories();   // never empty, even if an ini emptied the array
 	SettingsBudgetMs = Settings->BudgetMs;
 	Scheduler = FUpdateBudgetScheduler(Categories.Num());   // one cost prediction per category
 

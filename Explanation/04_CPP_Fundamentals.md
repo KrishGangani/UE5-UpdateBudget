@@ -71,7 +71,7 @@ namespace Grid { constexpr double Spacing = 400.0; }   // compile-time, typed, n
 ```cpp
 enum class EState : uint8 { Patrol, Alert };   // scoped: EState::Patrol; no silent int conversion
 ```
-- **In our code:** `EUBBrainState`, 1 byte, reflected with `UENUM()`. Since S3 also two **private, nested** enums inside the baseline driver, `EMode` and `EBand`: not reflected (nothing outside the class needs them), and a `switch` over `EBand` maps each band to its interval.
+- **In our code:** `EUBBrainState`, 1 byte, reflected with `UENUM()`. The baseline driver has a **private, nested** `EMode`, not reflected because nothing outside the class needs it. `EUBBaselineBand` was nested too until Phase 6; it now sits beside `FUBBaselineBands`, at namespace level, because the tests name it, and a `switch` over it maps each band to its interval (05 G4).
 
 ## 9. Casts and the ternary operator
 
@@ -103,7 +103,7 @@ class UMy { static float Twice(float X) { return 2.f * X; } };   // no 'this': d
 const float Y = UMy::Twice(3.f);
 ```
 - **Why:** a function that needs no object state says so in its signature. It can't accidentally read or change a member, and it's safe to call from any thread if its arguments are.
-- **In our code (S3):** `BandForDistanceSquared`, `BandForSignificance`, `IntervalForBand` and `SignificanceForDistanceSquared` in the baseline driver. That is why the significance lambda, which runs on worker threads, can call them without capturing anything.
+- **In our code:** `FUBBaselineBands::BandForSignificance` is static: it needs only its argument. Until Phase 6 all four band functions were static members of the baseline driver, reading constants. Once the bands came from the settings (05 G4), the other three became `const` member functions of `FUBBaselineBands`, because they now depend on its data; a function that needs state should say so.
 
 ## 13. Lambdas and what they capture
 
@@ -113,7 +113,7 @@ auto Count  = [this](int N) { Total += N; };               // captures the objec
 ```
 - **The capture list** (`[]`, `[this]`, `[&]`, `[=]`) decides what the lambda can reach from where it was written. Capturing `this` copies only a pointer, so **the object must outlive every copy of the lambda**.
 - **Copies:** storing a lambda in a `TFunction` (as `USignificanceManager::RegisterObject` does) copies it. Defining the lambda once and passing it many times makes one object that is copied per registration.
-- **In our code (S3):** the B3 significance function captures nothing: it runs on worker threads and touches only its arguments. The post-significance function captures `this` to call `SetIntervalIfChanged`. That is safe because every registration is removed (in `HandleAgentEndPlay` or `OnWorldEndPlay`) before the driver is destroyed (05 Part D).
+- **In our code:** both B3 functions capture `this`. The significance function runs on worker threads and reads only transforms and `Bands`, which nothing writes after begin play (it captured nothing until Phase 6, while the bands were constants). The post-significance function calls `SetIntervalIfChanged`. Both are safe because every registration is removed (in `HandleAgentEndPlay` or `OnWorldEndPlay`) before the driver is destroyed (05 G4).
 
 ## 14. `explicit` constructors and default arguments
 
@@ -173,7 +173,7 @@ auto OnUpdate = [&Log, Id, Action = MoveTemp(Action)](UUpdateBudgetTestComponent
 ```
 - **Init-capture** (`Name = expression`, C++14) creates a new member of the lambda from any expression. `Action = MoveTemp(Action)` moves the function object in instead of copying it.
 - **Capture by reference** (`&Log`) stores only an address: the lambda is valid only while `Log` lives. Stored lambdas (in a `TFunction` member) make that rule easy to break, which is why the test declares `Log` before the world that owns the components.
-- **In our code (S5):** the lifetime tests' `Spawn` helper builds each client's update hook this way (05 F6).
+- **In our code (S5):** the lifetime tests' `Spawn` helper builds each client's update hook this way (05 T4).
 
 ## 20. Never change a container while something iterates it
 
@@ -183,7 +183,7 @@ States.Add({});                                       // may move the whole arra
 ```
 - **Why it breaks.** A `TArray` (like `std::vector`) keeps its elements in one block. When it grows past its capacity it allocates a new block, copies the elements and frees the old one. Every pointer, reference, view and iterator into the old block is now dangling. Removing an element shifts or swaps elements, so saved indices change meaning too.
 - **The fix.** Defer the change: record it during the loop and apply it after. Replacing an element in place (`Clients[i] = nullptr`) is safe, because nothing moves.
-- **In our code (S5):** the scheduler reads `States` through `GetData()` (05 E2), and an update may spawn or destroy other clients. So `Register` queues into `PendingAdds` and `Unregister` nulls the slot while the scheduler runs (05 F4).
+- **In our code (S5):** the scheduler reads `States` through `GetData()` (05 P1), and an update may spawn or destroy other clients. So `Register` queues into `PendingAdds` and `Unregister` nulls the slot while the scheduler runs (05 P6).
 
 ## 21. `static` factory functions and `static constexpr` members
 
@@ -197,7 +197,7 @@ const FView View = FView::FromCamera(Camera);
 ```
 - **A static factory** is a named constructor: `FromCamera` says what it builds from, which a constructor overload can't. It returns the object by value; the compiler builds it directly in the caller's variable (copy elision).
 - **`static constexpr` data members** are inline variables since C++17: defined in the header, one value for the whole program, usable at compile time.
-- **In our code (S6):** `FUpdateBudgetView::FromCamera` and `AlwaysInViewRadius` (05 G1).
+- **In our code (S6):** `FUpdateBudgetView::FromCamera` and `AlwaysInViewRadius` (05 P2).
 
 ## 22. Compare squares instead of taking square roots
 
@@ -208,7 +208,7 @@ const bool bInside = Along > 0.0 && Along * Along > CosASquared * V.SizeSquared(
 ```
 - **Why it works.** For two non-negative numbers, x > y exactly when x² > y². So once `Along > 0` is known (and the right side is never negative), squaring both sides keeps the answer and removes the square root of `|V|`.
 - **Why it matters.** It runs for every client every frame. Distances are compared the same way: `DistanceSquared <= Square(NearDistance)`.
-- **In our code (S6):** `FUpdateBudgetView::IsInView` and `FUpdateBudgetCategory::GetSignificance` (05 G1); the brain's cone test (B4) uses the same idea.
+- **In our code (S6):** `FUpdateBudgetView::IsInView` and `FUpdateBudgetCategory::GetSignificance` (05 P2); the brain's cone test (05 G1) uses the same idea.
 
 ## 23. Calling the base version on purpose: `Super::` inside your own override
 
@@ -225,7 +225,7 @@ void UMyComponent::TakeOver()
 ```
 - **What it does.** A qualified call (`Super::F`, which is `BaseClass::F`) calls that exact version, **without** virtual dispatch. An unqualified call inside the class goes through the vtable and lands back in your own override.
 - **When it matters.** When the override adds bookkeeping that must apply to outside callers but not to the class's own internal changes.
-- **In our code (S7):** `UBudgetedUpdateComponent` records gameplay's tick choice in its `SetComponentTickEnabled` override. Its own mode changes (`SetDrivenByScheduler`, the `TickComponent` guard) call `Super::SetComponentTickEnabled`, so they are never mistaken for gameplay's choice (05 H3).
+- **In our code (S7):** `UBudgetedUpdateComponent` records gameplay's tick choice in its `SetComponentTickEnabled` override. Its own mode changes (`SetDrivenByScheduler`, the `TickComponent` guard) call `Super::SetComponentTickEnabled`, so they are never mistaken for gameplay's choice (05 P5).
 
 ## 24. Scope guards: cleanup that runs on every way out
 
@@ -238,7 +238,7 @@ FTestWorldWrapper Wrapper;                                  // declared later, s
 ```
 - **What it does.** `ON_SCOPE_EXIT` makes a local object whose destructor runs the lambda (`Core/Public/Misc/ScopeExit.h:73`): RAII without writing a class. Locals are destroyed in reverse order, so the guard above runs after the test world is gone (§18).
 - **When it matters.** In a function with many early returns, where a cleanup call before each `return` would be missed on one of them.
-- **In our code (S8):** the Blueprint test clears `RF_Standalone` on every path (05 I4).
+- **In our code (S8):** the Blueprint test clears `RF_Standalone` on every path (05 T6).
 
 ## 25. Name a lambda once, pass it to a template
 
@@ -251,4 +251,4 @@ NanosecondsPerCall(100000, RunNative);   // the same code, timed
 ```
 - **What it does.** Every lambda has its own type, and the template is instantiated for it, so the call inside the loop is a direct call the compiler can inline. A `TFunction` would call through a pointer on every iteration. Naming the lambda once means the warm-up and the timed rounds run exactly the same code.
 - **When it matters.** In micro-timing: the thing measured must not change between uses, and the harness must add as little as possible.
-- **In our code (S8):** `RunNative`, `RunScripted` and `RunUnguarded` in the Blueprint test (05 I4).
+- **In our code (S8):** `RunNative`, `RunScripted` and `RunUnguarded` in the Blueprint test (05 T6).

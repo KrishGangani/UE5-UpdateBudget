@@ -2,6 +2,7 @@
 // Run: Tools\run_tests.bat (editor, headless), filter "UpdateBudget.Significance".
 
 #include "Tests/UpdateBudgetTestFlags.h"
+#include "UpdateBudgetSettings.h"
 #include "UpdateBudgetSignificance.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
@@ -81,6 +82,29 @@ bool FUpdateBudgetViewTest::RunTest(const FString& Parameters)
 	TestFalse(TEXT("to the side (90 degrees)"), InView(FVector(0.0, 1000.0, 0.0)));
 	TestTrue(TEXT("at the camera"), InView(FVector::ZeroVector));
 	TestTrue(TEXT("just behind the camera, within the always-in-view radius"), InView(FVector(-150.0, 0.0, 0.0)));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUpdateBudgetSignificanceCategoryPickTest, "UpdateBudget.Significance.CategoryPick", UpdateBudgetTests::Flags)
+bool FUpdateBudgetSignificanceCategoryPickTest::RunTest(const FString& Parameters)
+{
+	// The rule the scheduler and the B2/B3 baselines share for a client's category, and the list it reads.
+	FUpdateBudgetCategory First;
+	First.NearDistance = 100.f;
+	FUpdateBudgetCategory Second;
+	Second.NearDistance = 200.f;
+	const TArray<FUpdateBudgetCategory> Categories = { First, Second };
+
+	TestEqual(TEXT("a valid index"), FUpdateBudgetCategory::Pick(Categories, 1).NearDistance, 200.f);
+	TestEqual(TEXT("an index past the end means category 0"), FUpdateBudgetCategory::Pick(Categories, 2).NearDistance, 100.f);
+	TestEqual(TEXT("a negative index means category 0"), FUpdateBudgetCategory::Pick(Categories, -1).NearDistance, 100.f);
+
+	// An ini can empty the settings' array; the list every reader gets still holds one default category.
+	UUpdateBudgetSettings* Settings = NewObject<UUpdateBudgetSettings>();
+	Settings->Categories.Empty();
+	const TArray<FUpdateBudgetCategory> InEffect = Settings->GetCategories();
+	TestEqual(TEXT("an emptied list still has one category"), InEffect.Num(), 1);
+	TestEqual(TEXT("...the default one"), InEffect[0].NearDistance, FUpdateBudgetCategory().NearDistance);
 	return true;
 }
 
