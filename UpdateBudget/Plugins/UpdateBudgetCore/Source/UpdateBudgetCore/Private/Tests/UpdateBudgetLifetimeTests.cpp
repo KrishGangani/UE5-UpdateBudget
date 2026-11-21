@@ -5,6 +5,8 @@
 // tick tests use too: a game world with a game instance and a game mode, so actors really begin play, ticked by hand
 // with GFrameCounter advanced after every frame (the tick manager runs each tick function once per frame number).
 
+#include "GameFramework/PlayerState.h"
+#include "GameFramework/WorldSettings.h"
 #include "Tests/AutomationCommon.h"
 #include "Tests/UpdateBudgetTestFlags.h"
 #include "Tests/UpdateBudgetTestTypes.h"
@@ -445,6 +447,136 @@ bool FUpdateBudgetLifetimeSwitchKeepsTickStateTest::RunTest(const FString& Param
 	TestEqual(TEXT("the paused client doesn't update natively"), Log.Updates[0], Before[0]);
 	TestEqual(TEXT("the resumed client updates natively, once per frame"), Log.Updates[1], Before[1] + 2);
 	Test.Wrapper.ForwardErrorMessages(this);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUpdateBudgetLifetimeTimeDilationTest, "UpdateBudget.Lifetime.TimeDilation", UpdateBudgetTests::Flags)
+bool FUpdateBudgetLifetimeTimeDilationTest::RunTest(const FString& Parameters)
+{
+	using namespace UpdateBudgetLifetimeTests;   // in each test, not at file scope: unity builds join .cpp files
+
+	// World time dilation 2: each 1/60 s frame advances world time by 2/60 s (LevelTick.cpp:1596, 1608-1610). The time
+	// contract measures DeltaSeconds in world time (05 P5), so the first update gets 0 and every later one 2/60 s, in
+	// both modes. Checked on the DeltaSeconds each update receives.
+	for (const bool bBudgeted : { false, true })
+	{
+		TArray<float> Deltas;   // before the world: the client's update writes into it
+		FUpdateLog Log;
+		FTestBudgetWorld Test(bBudgeted);
+		if (!Test.IsReady(*this))
+		{
+			return false;
+		}
+		Test.World->GetWorldSettings()->SetTimeDilation(2.f);
+		Test.Spawn(Log, [&Deltas](UUpdateBudgetTestComponent& Self, int32) { Deltas.Add(Self.LastDeltaSeconds); });
+		Test.Tick(4);
+
+		const TCHAR* Mode = bBudgeted ? TEXT("budgeted") : TEXT("native");
+		if (TestEqual(FString::Printf(TEXT("%s: one update per frame"), Mode), Deltas.Num(), 4))
+		{
+			TestEqual(FString::Printf(TEXT("%s: the first update got 0"), Mode), Deltas[0], 0.f);
+			for (int32 Index = 1; Index < Deltas.Num(); ++Index)
+			{
+				TestEqual(FString::Printf(TEXT("%s: update %d got twice the frame time"), Mode, Index + 1), Deltas[Index], 2.f / 60.f, 1e-5f);
+			}
+		}
+		Test.Wrapper.ForwardErrorMessages(this);
+	}
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUpdateBudgetLifetimePausedTest, "UpdateBudget.Lifetime.Paused", UpdateBudgetTests::Flags)
+bool FUpdateBudgetLifetimePausedTest::RunTest(const FString& Parameters)
+{
+	using namespace UpdateBudgetLifetimeTests;   // in each test, not at file scope: unity builds join .cpp files
+
+	// While the world is paused nothing updates, in either mode: actor ticks stop (LevelTick.cpp:1650-1656), the
+	// scheduler's tick function doesn't tick while paused (TickTaskManager.cpp:2364), and world time stands still
+	// (LevelTick.cpp:1608-1610). A mode switch requested while paused waits until play resumes (05 P6d).
+	for (const bool bBudgeted : { false, true })
+	{
+		FUpdateLog Log;
+		FTestBudgetWorld Test(bBudgeted);
+		if (!Test.IsReady(*this))
+		{
+			return false;
+		}
+		Test.Spawn(Log);
+		Test.Spawn(Log);
+		Test.Tick(2);
+
+		const FString Mode = bBudgeted ? TEXT("budgeted") : TEXT("native");
+		AWorldSettings* Settings = Test.World->GetWorldSettings();
+		Settings->SetPauserPlayerState(Test.World->SpawnActor<APlayerState>());
+		TestTrue(Mode + TEXT(": the world is paused"), Test.World->IsPaused());
+		const double PausedAt = Test.World->GetTimeSeconds();
+		Test.Enabled.Set(bBudgeted ? TEXT("0") : TEXT("1"));   // a switch requested while paused
+		Test.Tick(3);
+		TestEqual(Mode + TEXT(": no updates while paused"), Log.Updates, TArray<int32>({ 2, 2 }));
+		TestEqual(Mode + TEXT(": world time stood still"), Test.World->GetTimeSeconds(), PausedAt);
+		TestEqual(Mode + TEXT(": the switch waited"), Test.Subsystem->IsBudgeted(), bBudgeted);
+
+		Settings->SetPauserPlayerState(nullptr);
+		Test.Tick(1);   // the first frame of play runs in the old mode; the switch is applied at its end
+		TestEqual(Mode + TEXT(": switched once play resumed"), Test.Subsystem->IsBudgeted(), !bBudgeted);
+		Test.Tick(2);
+		TestEqual(Mode + TEXT(": one update per client per frame through the pause and the switch"), Log.Updates, TArray<int32>({ 5, 5 }));
+		TestEqual(Mode + TEXT(": no update out of play"), Log.UpdatesOutOfPlay, 0);
+		Test.Wrapper.ForwardErrorMessages(this);
+	}
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUpdateBudgetLifetimeManyClientsTest, "UpdateBudget.Lifetime.ManyClients", UpdateBudgetTests::Flags)
+bool FUpdateBudgetLifetimeManyClientsTest::RunTest(const FString& Parameters)
+{
+	using namespace UpdateBudgetLifetimeTests;   // in each test, not at file scope: unity builds join .cpp files
+
+	// 0, 1 and 10,000 clients in both modes, and 10,000 with a budget of 0 ms. A test world has no camera, so every client
+	// has significance 1 and is due every frame (05 P6f): all of them are mandatory, and each must update exactly once
+	// per frame whatever the budget. With no clients at all, nothing may break.
+	struct FCase
+	{
+		bool bBudgeted;
+		int32 Clients;
+		const TCHAR* BudgetMs;
+	};
+	const FCase Cases[] = {
+		{ false, 0, TEXT("-1") }, { true, 0, TEXT("-1") }, { false, 1, TEXT("-1") }, { true, 1, TEXT("-1") },
+		{ false, 10000, TEXT("-1") }, { true, 10000, TEXT("-1") }, { true, 10000, TEXT("0") } };
+	// The premise: with significance 1, a client's max staleness is the near limit, so all are due only while it is 0.
+	if (!TestTrue(TEXT("precondition: this project's default category has a near max staleness of 0"),
+		GetDefault<UUpdateBudgetSettings>()->GetCategories()[0].NearMaxStaleness == 0.f))
+	{
+		return false;
+	}
+	for (const FCase& Case : Cases)
+	{
+		FTestConsoleVariable Budget(TEXT("ub.BudgetMs"));   // declared before the world, so restored after it
+		Budget.Set(Case.BudgetMs);
+		FUpdateLog Log;
+		FTestBudgetWorld Test(Case.bBudgeted);
+		if (!Test.IsReady(*this))
+		{
+			return false;
+		}
+		for (int32 Index = 0; Index < Case.Clients; ++Index)
+		{
+			Test.Spawn(Log);
+		}
+		Test.Tick(3);
+
+		const FString Name = FString::Printf(TEXT("%s, %d clients, ub.BudgetMs %s"), Case.bBudgeted ? TEXT("budgeted") : TEXT("native"), Case.Clients, Case.BudgetMs);
+		TestEqual(Name + TEXT(": registered"), Test.Subsystem->GetNumClients(), Case.Clients);
+		int32 NotOncePerFrame = 0;
+		for (const int32 Updates : Log.Updates)
+		{
+			NotOncePerFrame += (Updates != 3) ? 1 : 0;
+		}
+		TestEqual(Name + TEXT(": clients without exactly 3 updates in 3 frames"), NotOncePerFrame, 0);
+		TestEqual(Name + TEXT(": updates out of play"), Log.UpdatesOutOfPlay, 0);
+		Test.Wrapper.ForwardErrorMessages(this);
+	}
 	return true;
 }
 

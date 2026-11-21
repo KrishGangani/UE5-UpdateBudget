@@ -66,6 +66,8 @@ CONFIGS = {
     # UpdateBudget (S6). ub.Enabled is read when the world begins play, so it is set through the ini system before
     # start-up; -ExecCmds would run too late (02 section 13). The budget comes from the project settings (2.0 ms).
     "UB": "-ini:Engine:[ConsoleVariables]:ub.Enabled=1",
+    # Phase 7 stability: UB with ub.Enabled toggled every 10 s of the capture (live switches under load).
+    "UBSW": "-ini:Engine:[ConsoleVariables]:ub.Enabled=1 -UBSwitchEvery=10",
 }
 
 # The first six exist in every capture; the UpdateBudget scheduler columns only in UB captures (csv_stats skips absent ones).
@@ -302,6 +304,8 @@ def main(argv: list[str]) -> int:
     unknown = [c for c in configs if c not in CONFIGS]
     if unknown:
         parser.error(f"unknown config(s) {unknown}; available: {sorted(CONFIGS)}")
+    if "UBSW" in configs and args.capture <= 10.0:
+        parser.error("UBSW switches every 10 s: --capture must be longer than 10 s")
     if args.wave_at is not None and not (0.0 <= args.wave_at < args.capture):
         parser.error("--wave-at must be inside the capture window (0 <= wave-at < capture)")
     agent_counts = [int(a) for a in args.agents.split(",") if a.strip()]

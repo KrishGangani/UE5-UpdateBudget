@@ -42,7 +42,7 @@ FBudgetFrameStats FUpdateBudgetScheduler::Run(TConstArrayView<FBudgetClientState
 		return DeadlineA < DeadlineB || (DeadlineA == DeadlineB && A < B);
 	});
 
-	// Counted before any client runs, because RunClient moves the deadline of the client it updates.
+	// Counted before any client runs: the order and the mandatory set are fixed then (FRunClient's contract).
 	int32 NumMandatory = 0;
 	while (NumMandatory < Order.Num() && State[Order[NumMandatory]].Deadline < NextFrameTime)
 	{

@@ -5,6 +5,7 @@
 #include "Camera/CameraActor.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
+#include "HAL/IConsoleManager.h"
 #include "HAL/PlatformMisc.h"
 #include "Math/RandomStream.h"
 #include "Misc/CommandLine.h"
@@ -56,6 +57,7 @@ UUBBenchmarkSubsystem::FRunSettings UUBBenchmarkSubsystem::ReadRunSettings()
 	FParse::Value(CommandLine, TEXT("UBWarmup="), Read.WarmupSeconds);
 	FParse::Value(CommandLine, TEXT("UBCapture="), Read.CaptureSeconds);
 	FParse::Value(CommandLine, TEXT("UBWaveAt="), Read.WaveAtSeconds);
+	Read.bSwitchGiven = FParse::Value(CommandLine, TEXT("UBSwitchEvery="), Read.SwitchEverySeconds);
 	FParse::Value(CommandLine, TEXT("UBRunTag="), Read.RunTag);
 	Read.bExitWhenDone = FParse::Param(CommandLine, TEXT("UBExit"));
 	return Read;
@@ -67,6 +69,11 @@ void UUBBenchmarkSubsystem::ValidateRunSettings() const
 	{
 		UE_LOG(LogUBBench, Error, TEXT("Invalid run timing: warm-up %.3f s, capture %.3f s (warm-up must be >= 0, capture > 0)."),
 			Settings.WarmupSeconds, Settings.CaptureSeconds);
+	}
+	if (Settings.bSwitchGiven && !(Settings.SwitchEverySeconds > 0.0 && Settings.SwitchEverySeconds < Settings.CaptureSeconds))
+	{
+		UE_LOG(LogUBBench, Error, TEXT("-UBSwitchEvery=%.3f must be above 0 and below the %.3f s capture: no switch would be measured."),
+			Settings.SwitchEverySeconds, Settings.CaptureSeconds);
 	}
 	if (Settings.WaveAtSeconds >= Settings.CaptureSeconds)
 	{
@@ -111,6 +118,7 @@ void UUBBenchmarkSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	CSV_METADATA(TEXT("UBSeed"), *FString::FromInt(Settings.Seed));
 	CSV_METADATA(TEXT("UBWork"), *FString::FromInt(EffectiveComputeIterations));
 	CSV_METADATA(TEXT("UBWaveAt"), *FString::SanitizeFloat(Settings.WaveAtSeconds));
+	CSV_METADATA(TEXT("UBSwitchEvery"), *FString::SanitizeFloat(Settings.SwitchEverySeconds));
 }
 
 uint32 UUBBenchmarkSubsystem::SpawnAgents(UWorld& World, int32 Count, int32 Seed)
@@ -219,6 +227,24 @@ void UUBBenchmarkSubsystem::Tick(float DeltaTime)
 			const uint32 WaveHash = SpawnAgents(*GetWorld(), Settings.NumAgents, Settings.Seed + 1);
 			UE_LOG(LogUBBench, Display, TEXT("Wave: %d agents now (hash 0x%08X)"), Agents.Num(), WaveHash);
 		}
+		// Live switches under load: ub.Enabled toggled at fixed points of the capture. The subsystem applies each one at the
+		// end of this frame (05 P6d). Set by code, which outranks the ini value that started the run in budgeted mode.
+		if (Settings.SwitchEverySeconds > 0.0 && InCapture >= (SwitchesRequested + 1) * Settings.SwitchEverySeconds && InCapture < Settings.CaptureSeconds)
+		{
+			++SwitchesRequested;
+			IConsoleVariable* Enabled = IConsoleManager::Get().FindConsoleVariable(TEXT("ub.Enabled"));
+			const int32 Wanted = (Enabled && Enabled->GetInt() == 0) ? 1 : 0;
+			if (Enabled)
+			{
+				Enabled->Set(Wanted, ECVF_SetByCode);
+			}
+			// A set at a lower priority than the variable's last one is ignored with only a log line (ConsoleManager.cpp:275-292).
+			if (!Enabled || Enabled->GetInt() != Wanted)
+			{
+				UE_LOG(LogUBBench, Error, TEXT("Live switch %d not applied: %s."), SwitchesRequested,
+					Enabled ? TEXT("ub.Enabled was last set with a higher priority") : TEXT("ub.Enabled doesn't exist"));
+			}
+		}
 		if (InCapture >= Settings.CaptureSeconds)
 		{
 			// The stop request is processed at the end of this frame; the report is written next frame, outside the capture.
@@ -253,9 +279,9 @@ void UUBBenchmarkSubsystem::WriteRunReport() const
 	const double Now = GetWorld()->GetTimeSeconds();
 	FString Report;
 	Report.Reserve(Agents.Num() * 96);
-	Report += FString::Printf(TEXT("# run=%s agents=%d seed=%d work=%d warmup=%.3f capture=%.3f waveat=%.3f benchstart=%.6f reporttime=%.6f\n"),
+	Report += FString::Printf(TEXT("# run=%s agents=%d seed=%d work=%d warmup=%.3f capture=%.3f waveat=%.3f switchevery=%.3f switches=%d benchstart=%.6f reporttime=%.6f\n"),
 		*Settings.RunTag, Agents.Num(), Settings.Seed, EffectiveComputeIterations,
-		Settings.WarmupSeconds, Settings.CaptureSeconds, Settings.WaveAtSeconds, BenchStartTime, Now);
+		Settings.WarmupSeconds, Settings.CaptureSeconds, Settings.WaveAtSeconds, Settings.SwitchEverySeconds, SwitchesRequested, BenchStartTime, Now);
 	Report += TEXT("index,x,y,z,patrol_time,last_update,age_at_report_ms,state_changes\n");
 
 	for (int32 Index = 0; Index < Agents.Num(); ++Index)

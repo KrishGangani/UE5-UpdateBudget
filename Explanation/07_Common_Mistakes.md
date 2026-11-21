@@ -126,6 +126,7 @@ Since Phase 6 the file is organised by module, as 05 is; each row names the step
 
 | Mistake | How to spot it | How to prevent it | How to debug it |
 |---|---|---|---|
+| ⚠ found in Phase 7: **reading a first-versus-last "drift" across a mode change** (the live-switch run's game-thread median rose from 4.2 to 16.7 ms) | A long run looks as if it slowed down, but the last part ran in another mode | Compare like with like: split a capture at its `ModeSwitch` events (`csv_stats.py --split-event`), or compare drift only in runs with one mode | Check the run's `ubmode` metadata (`Mixed`) and where the last `ModeSwitch` event falls |
 | Expecting `GameThreadTime` under `-nullrhi` | The column stays 0 (S1 finding) | Headline runs use the real RHI at a fixed small resolution | Check the column before trusting a run |
 | Looking for editor `-game` CSVs in the project's `Saved\` | No file where expected | Editor `-game` writes to `%LOCALAPPDATA%\UnrealEngine\5.8\Saved\Profiling\CSV`; the log line "Writing CSV to file" gives the path | Search the log for `Writing CSV to file`; the path follows it |
 | ⚠ caught: **raw files overwritten by a later batch** (names had only the date) | An old summary's numbers no longer match its raw file | Batch-timestamped names, and refuse to overwrite | Compare each summary's batch name with its raw files' timestamps: an overwritten file is newer than its summary |

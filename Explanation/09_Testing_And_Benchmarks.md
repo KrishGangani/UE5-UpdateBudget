@@ -453,9 +453,136 @@ Phase 6 consolidated 04–07 into one consistent pass over the code as it is now
   - recording the fixed step as its own manifest field for both analysis scripts: outside this change, and `run_bench.py` always uses 60 Hz today;
   - writing every category's numbers into every capture from the subsystem: a Phase 8 option if a cross-configuration check is needed.
 
+
+## Phase 7 · Testing (2026-11-21)
+
+Phase 7 checks that the system **does what it claims**, at the edges and over time: functional tests (35 automation tests, 7 of them new in this phase), the edge cases 03 listed (0, 1 and 10,000 clients, a budget of 0, every client mandatory, a paused world, time dilation, level streaming), live mode switches under load, a 30-minute soak, and a functional sweep up to N = 10,000. Performance comparisons are Phase 8's; nothing here is a benchmark result.
+
+| # | Check | Result |
+|---|---|---|
+| P7-a | **Build** (Development editor **and** game) | ✅ **0 errors, 0 warnings** in both targets (MSVC 14.44.35229): editor 12 actions, 10.3 s; game 9 actions, 15.2 s; then packaged (Development, `BUILD SUCCESSFUL`). Job `20261121_083709_b2a2b5`, which also ran P7-b to P7-d; every source was older than its start |
+| P7-b | **All automation tests** (`Tools\run_tests.bat UpdateBudget`, headless, through the job queue) | ✅ **35 / 35 passed**, `TEST COMPLETE. EXIT CODE: 0`, 0 errors and 0 warnings in the log: scheduler (15), lifetime (11), significance (6), Blueprint (1) and baselines (2). The 7 new tests: `Scheduler.BreakNotSkip`, `NonFiniteCosts`, `BufferReuseAcrossSizes`, `RandomFrameInvariants` (2,000 frames in about 60 ms) and `Lifetime.TimeDilation`, `Paused`, `ManyClients` (seven worlds, three with 10,000 clients, in about 3 s) |
+| P7-c | **Live switches under load** (packaged, pinned): UB at N = 4,000, `ub.Enabled` toggled every 10 s of a 120 s capture by the director (`-UBSwitchEvery=10`, 05 G3) | ✅ Batch `2026-11-21_092419_p7switch` (one run, not evidence of anything but correctness). **7,200 frames, 11 live switches** (the capture ends in native mode, `ubmode = Mixed`), and **no frame updated more clients than were registered** (this can't see a double update in a budgeted frame with deferred clients; the direct `RepeatUpdates` counter came after this run, see Phase 8). The largest gap was 333.3 ms against a bound of 516.7 ms, with 0 frames and 0 agents over it and no agent left without an update. Memory: +4.5 MB over the run. The `GameThreadTime` median of the last tenth (16.7 ms) is higher than the first (4.2 ms) because the last 10 s ran **natively** after the 11th switch: N = 4,000 natively costs about that much (09 S3-i). It is a mode change, not drift (07). `Tools/check_stability.py` → `Summaries/2026-11-21_092419_p7switch_stability.md` |
+| P7-d | **Functional sweep** (packaged, pinned): UB at N = 100, 1,000, 2,000, 4,000, 8,000 and 10,000, one 30 s run each, checked with `analyse_ub.py` (SC1–SC3) and `check_stability.py` | ✅ Batch `2026-11-21_092553_p7sweep`, one run per N (a correctness check, not a benchmark). **Every run passes SC1, SC2 and SC3**: `UpdateMs` p95 at the 2 ms budget (2.000–2.001 ms; at N = 100 the whole workload costs 0.46 ms), every over-budget frame **soft** (none forced), no frame or agent over the staleness bound, no agent never updated, and 100% of frames with no near client missed. The largest gap grows with N, from 33 ms at N = 100 to 466.7 ms at N = 10,000, still under the 516.7 ms bound: the budget lets about 495 updates run per frame whatever N, so the staleness rises towards its limit, and mandatory updates (about 17 per frame) keep it there. No double update, and memory within ±9 MB over each run. **An observation for Phase 8, not a result:** the scheduler's own cost, `RunFrame` − `UpdateMs`, grows from about 0.2 ms at N = 1,000 to about 1.4 ms at N = 10,000 (the `Deadlines` scope alone 0.53 ms), which is what Phase 8's sort and deadline-loop profiling (02 §12 items 5 and 6) will look at. `analyse_ub.py` → `Summaries/2026-11-21_092553_p7sweep_ub_check.md`; `check_stability.py` → `..._stability.md` |
+| P7-e | **30-minute soak** (packaged, pinned): UB at N = 4,000, one 1,800 s capture (game time) | ✅ Batch `2026-11-21_092817_p7soak`, job `20261121_083717_7dfe19`. **30 minutes of game time**: 108,000 frames at the fixed 60 Hz step, which took 557 s of wall time, because a fixed step doesn't wait for real time (`01b` B-1). **No frame updated more clients than were registered; the largest gap was 333.3 ms against the 516.7 ms bound, with 0 frames and 0 agents over it, and no agent never updated.** No slowdown: the `GameThreadTime` median was 4.00 ms in the first tenth and 3.87 ms in the last. **Memory:** `PhysicalUsedMB` rose 45 MB from the first tenth to the last (1,262 → 1,307 MB), but almost all of it in the first 30 % of the run; from the third tenth to the last it rose 4.6 MB over 75,600 frames. That is a plateau, not the steady growth a per-frame leak in the registry or the scheduler would give [inferred from the shape; native runs weren't soaked for comparison, and a process's working set includes the engine's own caches]. `check_stability.py` → `Summaries/2026-11-21_092817_p7soak_stability.md`. The raw capture is 183 MB |
+| P7-f | **Batch scripts and exit codes** (AGENT_BRIEF rule 12) | ✅ Every `Tools\*.bat` runs one engine command and then `exit /b %ERRORLEVEL%`, so a failure is the script's exit code; none chains steps with `call … \|\| exit /b`. The queue jobs chain steps with `&&`, and failures do stop them: the first S8 run exited 255 on a failed test, and the first Phase 6 build exited 6 on a compile error (09 S8, Phase 6) |
+
+### Every test: what it proves, and what it doesn't
+
+**Scheduler** (`UpdateBudget.Scheduler.*`, pure policy with fake clients and costs; 05 T3):
+
+| Test | What it proves | What it doesn't prove |
+|---|---|---|
+| `NoClients` | Zero clients: nothing runs, nothing breaks, no over-budget flag | — |
+| `DeadlineOrder` | Earliest deadline first, and a tie broken by index (run order `1, 3, 4, 2, 0`) | The order on real, measured deadlines (`RandomFrameInvariants` covers many shapes) |
+| `BudgetCutOff` | Equal predicted costs: exactly the clients that fit run, the rest are deferred, not over budget | Unequal costs: `BreakNotSkip` |
+| `BreakNotSkip` (Phase 7) | The first optional client that doesn't fit **ends** the frame: a cheaper client with a later deadline doesn't jump ahead (`break`, not `continue`) | — |
+| `MandatoryBeatsBudget` | Every due client runs even when they overrun the budget, and the overrun is reported | That mandatory overruns are rare: that depends on the settings and the load (SC1, Phase 8) |
+| `ZeroBudget` | A budget of 0 still runs every due client, most overdue first, and nothing else | — |
+| `DeadlineAtNextFrameIsOptional` (UE5-TestTrust, S7) | A deadline exactly at the next frame is optional (the strict `<`), and doesn't run with a zero budget | — |
+| `ExactFitStillRuns` (UE5-TestTrust, S7) | An update that exactly fills the remaining budget still runs (the cut-off is `>`) | — |
+| `ExactlyOnBudgetIsNotOverBudget` (UE5-TestTrust, S7) | Spending exactly the budget is not "over" | — |
+| `CostPrediction` | One moving-average step is exact; a steady cost is learned; a negative and a NaN measurement count as 0, and the budget still works afterwards | That the prediction tracks real costs well: Phase 8 measures it (the over-budget share, SC1) |
+| `NonFiniteCosts` (Phase 7) | ±infinity measured costs count as 0; the starting prediction is sanitised the same way; the smoothing weight is clamped to [0, 1]; zero categories still give one prediction | — |
+| `CategoryFallback` | An unknown category reads and teaches category 0, without a crash | — |
+| `BufferReuseAcrossSizes` (Phase 7) | The reused sort buffer never leaves a stale index when the client count shrinks, grows or reaches 0 | — |
+| `NoStarvation` | Under a real overload (asserted), 600 simulated frames: no client waits longer than its max staleness (or one frame); every client runs; near clients every frame; frames with optional work stay in budget | Real frame times: the simulation's costs are constants |
+| `RandomFrameInvariants` (Phase 7) | 2,000 random frames on one scheduler (ties, out-of-range categories, negative costs, predictions carried over): the run order is a prefix of EDF order; every due client runs; no optional client starts without room; the loop stops only when the next client doesn't fit; the counters and sums are exact; "over budget" is exactly `SpentMs > BudgetMs` | Deadlines that aren't finite (a stated precondition, 05 P1), or inputs outside the generator's ranges |
+
+**Lifetime** (`UpdateBudget.Lifetime.*`, real components in the engine's test world; 05 T4). A test world has no player camera, so every client has significance 1 and is due every frame: these tests prove exactly-once-per-frame behaviour, not significance.
+
+| Test | What it proves | What it doesn't prove |
+|---|---|---|
+| `ModeAtBeginPlay` | In both modes, 4 clients register; mode and native-tick state match; exactly 3 updates in 3 frames | — |
+| `DestroyDuringUpdate` | Destroying clients from inside an update (one already run, itself, one not yet run): the not-yet-run one is skipped, the survivors keep one update per frame, no stale entry | Destruction by garbage collection without `EndPlay` (covered by the registry's GC hook, 05 P6e, but not by a test) |
+| `SpawnDuringUpdate` | A client spawned inside an update registers after the loop and first updates next frame; one spawned and destroyed in the same update never registers | — |
+| `LevelUnloadOrder` | The streaming-removal order (components unregistered first, `EndPlay` later, possibly frames apart, also from inside an update): the client stops updating at the first step | A real streaming level: the test reproduces the engine's order (`World.cpp:4196–4251`) with `UnregisterAllComponents` and `RouteEndPlay` |
+| `NoDoubleUpdate` | Re-registration, `Activate()` and enabling the tick function directly can't make a scheduled client update twice | Every possible engine path that re-enables a tick: the three known ones are tested |
+| `WorldTeardown` | Ending play and destroying the world after a frame of spawns and destructions: no component keeps a link, the subsystem is collected | — |
+| `LiveSwitch` | Budgeted → native → budgeted, the first switch requested from inside an update: exactly one update per client per frame through both switches; a change undone within a frame switches nothing | Switches under real load: P7-c |
+| `LiveSwitchKeepsTickState` | Gameplay's tick choices, including those made while budgeted, survive a switch there and back | — |
+| `TimeDilation` (Phase 7) | With world time dilation 2, every update after the first receives twice the frame time, in both modes: the time contract follows world time | Per-actor `CustomTimeDilation`: the time contract ignores it by design (05 P5) |
+| `Paused` (Phase 7) | While paused, nothing updates in either mode and world time stands still; a switch requested while paused waits, and applies at the end of the first frame of play | — |
+| `ManyClients` (Phase 7) | 0, 1 and 10,000 clients in both modes, and 10,000 with a budget of 0 ms: every client registered, each updated exactly once per frame, none out of play | That 10,000 clients fit a frame: with no camera they are all mandatory, so this is correctness, not cost (P7-d) |
+
+**Significance** (`UpdateBudget.Significance.*`, pure functions; 05 T5):
+
+| Test | What it proves | What it doesn't prove |
+|---|---|---|
+| `Bands` | 1 up to and at 15 m, linear between, 0 at and beyond 60 m | — |
+| `OutOfView` | × 0.5 out of view, at near, mid and far distances | — |
+| `MaxStaleness` | 0 s at significance 1, 0.5 s at 0, linear between | — |
+| `FarNotBeyondNear` | A far edge at or inside the near edge gives a step, never a division by zero or a NaN | — |
+| `ViewCone` | The cone reaches the screen's corners (47° in, 51° out at 90°, 16:9); behind is out; within 2 m of the camera is in | Other FOVs and aspect ratios than the one tested |
+| `CategoryPick` (Phase 6) | The shared category rule, and that an emptied settings list still gives one default category | — |
+
+**Blueprint** (`UpdateBudget.Blueprint.EventCost`, editor only; 05 T6): proves that a Blueprint built and compiled in code runs the Budgeted Update event exactly once per update, and measures its cost against the native path (09 S8). It doesn't measure a packaged build, whose Blueprints carry no debug instructions; the editor number is an upper bound (owner decision; Phase 8 may measure a cooked one).
+
+**Baselines** (`UpdateBudget.Baselines.*`, game module; 05 T7):
+
+| Test | What it proves | What it doesn't prove |
+|---|---|---|
+| `DefaultsAreTheS3Bands` | The driver's own path gives exactly the S3 constants with this project's settings, so the captured baselines are still the baselines | — |
+| `SameBandsAsUpdateBudget` | B2's and B3's bands equal UB's at both edges and 1 cm either side, for the default and a changed category; Mid stays between its limits, also when inverted | Agreement within a fraction of a millimetre past the near edge, where UB's float significance can round to 1 (05 G4) |
+
+### Mutation testing, and what it covers
+
+UE5-TestTrust (another project of this portfolio, a mutation-testing tool for UE automation tests) ran two campaigns on `UpdateBudgetScheduler.cpp` (09 S7): **M1 = 92.1%** (35 of 38 non-equivalent mutants killed) against the 8 S4 tests, then **M1 = 100.0%** (38 of 38) after its 3 boundary tests were merged here. Those numbers are UE5-TestTrust's, measured on that file at commit `b890bc6`, first with the 8 S4 tests and then with all 11; they were not re-measured here. What they mean, honestly:
+- They say the scheduler tests notice every **single-point** change UE5-TestTrust's operators make to that one file. They say nothing about the subsystem, the component or the game module, which no campaign has mutated.
+- The 4 scheduler tests added in Phase 7 were written after the campaign; whether they kill any mutant the earlier ones didn't is unknown until a new campaign runs.
+- A score of 100% is a statement about the operators tried, not a proof that the tests catch every bug.
+
+### Edge cases from 03, and where each is covered
+
+| 03's edge case | Covered by |
+|---|---|
+| 0, 1 and 10,000 clients | `Scheduler.NoClients`; `Lifetime.ManyClients` (0, 1, 10,000, both modes); P7-d (packaged, N up to 10,000) |
+| Budget 0 | `Scheduler.ZeroBudget`; `Lifetime.ManyClients` (10,000 clients, `ub.BudgetMs 0`) |
+| All agents mandatory | `Scheduler.MandatoryBeatsBudget`, `ZeroBudget`; every lifetime test (no camera: everyone due) |
+| Pause | `Lifetime.Paused` |
+| Time dilation | `Lifetime.TimeDilation` |
+| Level streaming | `Lifetime.LevelUnloadOrder` (the engine's removal order, reproduced); not a real streaming level |
+| Stability (30-minute soak) | P7-e |
+| Scalability (N sweep) | P7-d for correctness; Phase 8 for cost |
+| Mode switches under load | P7-c |
+
 ---
 
-## Phases 7–8 (to be written)
+## Phase 7 · audit, and Phase 8 · results (2026-11-21, owner's fast track)
 
-- Functional, edge-case, stability and scalability tests.
-- The full benchmark protocol and the SC1–SC7 results.
+**Phase 7 audit.** `code-review` (medium) on the Phase 7 code: 3 important findings, all in `check_stability.py` (drift compared across modes, mode switches not enforced, an empty batch passing), fixed; of 12 nits, the real ones were fixed: a direct double-update counter (`UpdateBudget/RepeatUpdates`, 05 P6a), the time-dilation test now checks the `DeltaSeconds` each update receives, `ManyClients` asserts its premise, and the director reports a switch that didn't apply as an error. A `simplify` pass ran; its findings (shared staleness helpers between the two analysis scripts, one `MakeClients`, a named switch interval) were **not applied**, by the owner's fast-track decision. **P7-c's "no double update" rests on `UpdatesRun <= Clients`**, which can't see a double update in a budgeted frame with deferred clients; the direct counter came afterwards and is 0 in every run of the Phase 8 batch below.
+
+**The final build and tests:** job `20261121_100119_321487`: editor and game built with **0 errors and 0 warnings**, **35 / 35 tests passed**, packaged.
+
+**Phase 8, as the owner reduced it:** no full matrix and no budget sweep; one balanced batch, `2026-11-21_100316_p8ub`: B0 and UB at N = 4,000, 4 interleaved runs + priming, pinned, same build. `analyse_ub.py` and `check_stability.py` on it: SC1–SC3 PASS in all four UB runs, `RepeatUpdates` 0 in every run of both configurations.
+
+| N = 4,000 | GameThreadTime median [min–max] (ms) | p95 (ms) | p99 (ms) | Batch |
+|---|---|---|---|---|
+| B0 | 17.246 [16.743–17.890] | 19.032 | 20.357 | `2026-11-21_100316_p8ub` |
+| UB (2 ms) | 4.048 [3.991–4.052] | 4.765 | 5.290 | `2026-11-21_100316_p8ub` |
+| B1 | 16.155 [15.476–16.349] | 17.586 | 18.635 | `2026-11-21_015041_baseline_pinned` |
+| B2 | 3.312 [3.260–3.416] | 4.511 | 12.445 | `2026-11-21_015041_baseline_pinned` |
+| B3 | 3.488 [3.369–3.538] | 4.556 | 12.762 | `2026-11-21_015041_baseline_pinned` |
+
+**Success criteria (01 §6.4), from the data that exists:**
+
+| Criterion | Verdict | Evidence |
+|---|---|---|
+| SC1 budget adherence | **PASS** | Every UB run: `UpdateMs` p95 2.000–2.001 ms against 2 ms (×1.10 allowed); every over-budget frame soft, none forced (`p8ub`, `p7sweep`, `s6first`) |
+| SC2 no starvation | **PASS** | 0 frames and 0 agents over the bound in every UB run: N = 100–10,000 (`p7sweep`), 4 runs at 4,000 (`p8ub`), the 30-minute soak (`p7soak`), 11 live switches (`p7switch`) |
+| SC3 relevance first | **PASS** | 100% of frames with no near client missed in every UB run (target ≥ 99% at N ≤ 2,000) |
+| SC4 real improvement | **NOT MET** | UB beats B0 and B1 by about 4× at N = 4,000, but not B2 or B3: their medians are 0.6–0.7 ms lower at the 2 ms budget (at N = 2,000 too: B2 2.64 ms against UB 3.58 ms in one `p7sweep` run). B2/B3 come from an older batch and build, not interleaved with UB. The budget sweep that 03 planned for this question was not run. As 01 required, this is reported, not reframed |
+| SC5 low overhead at N = 100 | **Not measured** | No pinned B0 at N = 100 beside UB (UB alone: 1.72 ms median, one run, `p7sweep`) |
+| SC6 behaviour stays correct | **Not measured** | The per-agent position reports exist for every run; the comparison against a reference run was never built |
+| SC7 editor and spawn cost | **Not measured** | — |
+
+Not done by the owner's fast-track decision: the full matrix, the budget sweep, Insights drill-downs, the Phase 9 fixes below, the demo video.
+
+**Phase 9 (`code-review`, medium, whole codebase), recorded and not fixed** (owner: fix only what is visibly broken; none of these affected a measured result above):
+- The scheduler counts an entry that was skipped during the loop (a client destroyed by another's update) as a free update: it pulls the cost prediction towards 0 and counts it in `Runs`.
+- In budgeted mode clients keep updating under `playersonly`, which freezes them natively.
+- `check_stability.py`'s `UpdatesRun <= Clients` check can fail a native wave run: wave agents spawned in the director's tick are counted in the next frame.
+- `RepeatUpdates` would count a client that ticks while paused (`bTickEvenWhenPaused`) as a double update.
+- A switch period shorter than a frame makes the director and `check_stability.py` disagree on the switch count.
+
+---

@@ -20,9 +20,13 @@ public:
 	/** Called inside every update of this component. */
 	TFunction<void(UUpdateBudgetTestComponent&)> OnUpdate;
 
+	/** The DeltaSeconds the latest update received (05 P5's time contract), readable from OnUpdate. */
+	float LastDeltaSeconds = -1.f;
+
 protected:
 	virtual void OnBudgetedUpdate(float DeltaSeconds) override
 	{
+		LastDeltaSeconds = DeltaSeconds;
 		if (OnUpdate)
 		{
 			OnUpdate(*this);

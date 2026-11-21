@@ -21,6 +21,7 @@ struct FUpdateBudgetFrameReport
 	int32 Clients = 0;
 	int32 Updates = 0;
 	double MaxGapSeconds = 0.0;
+	int32 RepeatUpdates = 0;   // updates of a client already updated at this world time: a double update. Must stay 0
 
 	/** The rest is filled by RunFrame, so only in budgeted mode. */
 	double BudgetMs = 0.0;
@@ -77,6 +78,8 @@ public:
 		if (PreviousUpdateTime >= 0.0)
 		{
 			Frame.MaxGapSeconds = FMath::Max(Frame.MaxGapSeconds, UpdateTime - PreviousUpdateTime);
+			// World time advances every frame that updates anything, so the same time twice is two updates in one frame.
+			Frame.RepeatUpdates += (UpdateTime == PreviousUpdateTime) ? 1 : 0;
 		}
 		// INDEX_NONE while the client waits in PendingAdds; it is copied from the client when the add is applied.
 		if (Client.RegistryIndex != INDEX_NONE)

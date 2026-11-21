@@ -401,6 +401,7 @@ void UUpdateBudgetSubsystem::Tick(float DeltaTime)
 	CSV_CUSTOM_STAT(UpdateBudget, Clients, Frame.Clients, ECsvCustomStatOp::Set);
 	CSV_CUSTOM_STAT(UpdateBudget, UpdatesRun, Frame.Updates, ECsvCustomStatOp::Set);
 	CSV_CUSTOM_STAT(UpdateBudget, MaxGapMs, Frame.MaxGapSeconds * 1000.0, ECsvCustomStatOp::Set);
+	CSV_CUSTOM_STAT(UpdateBudget, RepeatUpdates, Frame.RepeatUpdates, ECsvCustomStatOp::Set);
 	if (bBudgeted)
 	{
 		// The scheduler's own numbers exist only in budgeted mode; native captures don't get columns of zeros.

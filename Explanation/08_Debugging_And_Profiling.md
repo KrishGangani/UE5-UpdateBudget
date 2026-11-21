@@ -67,7 +67,7 @@ How to read them together:
 - **`MaxGapMs`** above `ubmaxstaleness` + one frame is a staleness violation (SC2).
 - **`NearMissed`** above 0 is a near client not updated in its frame (SC3).
 
-`Tools/csv_stats.py` computes the statistics (05 M2), `Tools/analyse_baselines.py <batch>` answers H1, H4 and H6 (05 M4), and `Tools/analyse_ub.py <batch>` checks SC1–SC3 into `Benchmarks/Summaries/<batch>_ub_check.md` (05 M5).
+`Tools/csv_stats.py` computes the statistics (05 M2), `Tools/analyse_baselines.py <batch>` answers H1, H4 and H6 (05 M4), `Tools/analyse_ub.py <batch>` checks SC1–SC3 into `Benchmarks/Summaries/<batch>_ub_check.md` (05 M5), and `Tools/check_stability.py <batch>` checks every frame of any capture for double updates, staleness, mode switches and drift (05 M6).
 
 ## 7. Unreal Insights
 
@@ -79,7 +79,9 @@ How to read them together:
 
 ## 8. Tests as debugging tools
 
-`Tools\run_tests.bat UpdateBudget.Lifetime` (or any name prefix) runs one suite headless and exits with its verdict (05 A8). Each lifetime test reproduces one way the engine can change a component under the scheduler: destroying, spawning or re-registering during an update, streaming removal, a live switch requested inside an update, and world teardown (05 T4). When a bug is suspected, the fastest check is often a new test in that file: a real world, a few clients, exact frame counts.
+`Tools\run_tests.bat UpdateBudget.Lifetime` (or any name prefix) runs one suite headless and exits with its verdict (05 A8). Each lifetime test reproduces one way the engine can change a component under the scheduler: destroying, spawning or re-registering during an update, streaming removal, a live switch requested inside an update, and world teardown (05 T4). When a bug is suspected, the fastest check is often a new test in that file: a real world, a few clients, exact frame counts. For the policy itself, `Scheduler.RandomFrameInvariants` checks every rule on 2,000 random frames and reports the first frame that breaks one, with its seed fixed so it reproduces (05 T3b).
+
+**Live switches in a packaged run:** `-UBSwitchEvery=SEC` makes the director toggle `ub.Enabled` every SEC seconds of the capture (05 G3), and `check_stability.py` then checks every frame (09 P7-c).
 
 ## 9. Blueprint clients
 

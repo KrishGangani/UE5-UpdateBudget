@@ -4,11 +4,11 @@
 
 **Domain:** Performance & profiling · game-thread CPU · **Difficulty:** ★★★☆☆ · **Engine:** UE 5.8.4
 
-> **Status: in progress. There are no results yet.** Sections marked *(pending)* are filled in only from real measurements, in the phase named.
+> **Status: complete (v1).** Results below are measured; criteria that were not measured are marked so. Not production-ready: a portfolio prototype, measured on one machine.
 
 | Phase | 1 Problem | 2 Research | 3 Architecture | 4 Foundation | 5 Implementation | 6 Explanation | 7 Testing | 8 Profiling | 9 Review | 10 Portfolio |
 |---|---|---|---|---|---|---|---|---|---|---|
-| State | ✓ | ✓ | ✓ final | ✓ | ✓ (S1–S8) | ✓ | — | — | — | — |
+| State | ✓ | ✓ | ✓ final | ✓ | ✓ (S1–S8) | ✓ | ✓ | ✓ (partial) | ✓ | ✓ |
 
 ---
 
@@ -26,15 +26,44 @@ Final (v1.0): [Explanation/02_System_Architecture.md](Explanation/02_System_Arch
 
 ## Before / after comparison
 
-*(pending, Phase 8)*. Five configurations on one fixed workload: B0 native tick, B1 batched, B2 distance interval, B3 Significance Manager, UB UpdateBudget.
+Five configurations on one fixed workload (02 §9): **B0** native tick every frame, **B1** B0 with engine tick batching, **B2** distance bands → `TickInterval`, **B3** Epic's Significance Manager → `TickInterval`, **UB** UpdateBudget at its default 2 ms budget. Packaged Development build, fixed 60 Hz step, every run pinned to the performance cores; median of 4 interleaved runs, [min–max across runs].
+
+![Game-thread time at N = 4,000](Media/gamethread_n4000.png)
+
+| N = 4,000 | GameThreadTime median (ms) | p95 (ms) | Batch |
+|---|---|---|---|
+| B0 native tick | 17.25 [16.74–17.89] | 19.03 | `2026-11-21_100316_p8ub` (balanced with UB) |
+| **UB, 2 ms budget** | **4.05 [3.99–4.05]** | **4.77** | `2026-11-21_100316_p8ub` |
+| B1 batched ticks | 16.16 [15.48–16.35] | 17.59 | `2026-11-21_015041_baseline_pinned` (S3) |
+| B2 distance bands | 3.31 [3.26–3.42] | 4.51 | `2026-11-21_015041_baseline_pinned` (S3) |
+| B3 Significance Manager | 3.49 [3.37–3.54] | 4.56 | `2026-11-21_015041_baseline_pinned` (S3) |
+
+**What this shows, honestly:**
+- UB cuts B0's game-thread time at N = 4,000 by about 4× (17.25 → 4.05 ms), measured in one balanced batch.
+- UB does **not** beat the smarter native baselines at its default 2 ms budget: B2 and B3 are about 0.6–0.7 ms faster at the median. UB spends its whole budget on purpose (work-conserving, 02 §12 item 9), so it updates agents more often than B2/B3 do. The budget sweep that would find the budget where UB matches or beats them was not run, and the B2/B3 numbers come from an earlier batch with an older build. **SC4 is therefore not met as measured.**
+- What UB gives that B2/B3 don't: a **hard staleness guarantee** (no agent ever waited longer than its limit in any run) and a **controlled budget** (p95 of the update cost at exactly 2.00 ms in every run).
 
 ## Benchmark results
 
-*(pending, Phase 8)*. Median, p95 and p99 game-thread ms at N = 100 / 1k / 2k / 4k agents, plus staleness distributions. Raw data in [Benchmarks/](Benchmarks/README.md). The pass/fail criteria were fixed in advance: [01_Problem_Analysis.md §6.4](Explanation/01_Problem_Analysis.md).
+The success criteria were fixed before the code ([01 §6.4](Explanation/01_Problem_Analysis.md)); the full table, with the batches, is in [09, Phase 8](Explanation/09_Testing_And_Benchmarks.md).
+
+| Criterion | Result |
+|---|---|
+| SC1 budget adherence (p95 update time ≤ 1.10 × budget) | **PASS** in every UB run (p95 2.000–2.001 ms at 2 ms; every over-budget frame soft, none forced) |
+| SC2 no starvation (0 staleness violations) | **PASS**: 0 violations in every UB run, N = 100 to 10,000, including a 30-minute soak and 11 live mode switches |
+| SC3 relevance first (near agents updated every frame in ≥ 99% of frames) | **PASS**: 100% in every UB run |
+| SC4 real improvement over the best of B0–B3 | **Not met** at the default 2 ms budget (see above); the budget sweep was not run |
+| SC5 low overhead at N = 100 | **Not measured** (no pinned B0 run at N = 100 beside UB) |
+| SC6 behaviour stays correct (patrol error) | **Not measured** |
+| SC7 editor and spawn cost | **Not measured** |
+
+![UB staleness vs N](Media/ub_staleness_vs_n.png)
+
+The staleness bound holds up to N = 10,000 (one functional run per N): the budget allows about 495 updates per frame whatever N, so the largest gap grows towards the bound while mandatory updates keep it under. Raw data and run logs: [Benchmarks/](Benchmarks/README.md).
 
 ## Recorded demonstration
 
-*(pending, Phase 10)*. B0 vs UB on the same camera path, with agents tinted by update recency and a live game-thread graph. Saved in `Media/`.
+Not recorded (skipped by the owner's decision). The debug view (`ub.Debug 2`) tints every agent by how recently it was updated ([08](Explanation/08_Debugging_And_Profiling.md)).
 
 ## Source code
 

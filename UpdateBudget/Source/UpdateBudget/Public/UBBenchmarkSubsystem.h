@@ -17,6 +17,7 @@ class AUBDemoAgent;
  *   [0, Warmup)            warm-up: agents and camera already moving, nothing measured
  *   Warmup                 CSV_EVENT "BenchStart"  -> capture starts with -csvStartOnEvent=BenchStart
  *   Warmup + WaveAt        optional wave: N more agents (the load doubles), CSV_EVENT "Wave"
+ *   Warmup + k * Switch    with -UBSwitchEvery, ub.Enabled is toggled (k = 1, 2, ... while inside the capture)
  *   Warmup + Capture       CSV_EVENT "BenchEnd"    -> capture stops at the end of this frame (-csvStopOnEvent=BenchEnd)
  *   next frame             the per-agent run report is written (outside the capture, so it never costs a measured frame)
  *   a few frames later     with -UBExit the game quits, after the CSV profiler has written its file
@@ -31,6 +32,7 @@ class AUBDemoAgent;
  *   -UBCapture=SEC  measured seconds (default 60)
  *   -UBWaveAt=SEC   seconds after BenchStart to double the agents (default: no wave)
  *   -UBRunTag=NAME  name of the run report file and CSV metadata tag (default "run")
+ *   -UBSwitchEvery=SEC  toggle ub.Enabled every SEC seconds of the capture (a stability test of live switching)
  *   -UBExit         quit when the run is finished
  */
 UCLASS()
@@ -70,6 +72,8 @@ private:
 		double WarmupSeconds = 10.0;
 		double CaptureSeconds = 60.0;
 		double WaveAtSeconds = -1.0;
+		double SwitchEverySeconds = -1.0;
+		bool bSwitchGiven = false;
 		FString RunTag = TEXT("run");
 		bool bExitWhenDone = false;
 	};
@@ -103,6 +107,7 @@ private:
 	double BenchStartTime = 0.0;
 	double ArenaHalfExtent = 0.0;
 	bool bWaveSpawned = false;
+	int32 SwitchesRequested = 0;
 	int32 FramesSinceEnd = 0;
 
 	UPROPERTY(Transient)
